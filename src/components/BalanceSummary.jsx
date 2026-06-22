@@ -29,7 +29,7 @@ export default function BalanceSummary({ balances, asOfIso }) {
       <Stat
         value={fmtLeaves(balances.spendable)}
         label="Spendable days"
-        sub="sick + whole annual days"
+        sub="whole sick + whole annual days"
         tone="tone-total"
       />
     </div>

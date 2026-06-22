@@ -6,14 +6,18 @@ export const MAX_WFH_PER_WEEK = 2;
 export const DEFAULT_OFFICE_MIN = 3;
 
 // Mandatory office days in a week, given H public holidays and L leaves that
-// week. The base rule is the 50% pro-rata curve ceil((5 - H - L) / 2), capped
-// by a configurable full-week minimum `fullWeekMin` (default 3). With
-// fullWeekMin = 3 this reproduces the original rule exactly (since the 50% curve
-// never exceeds 3 for a 5-day week); lowering it models e.g. a "min 2 days/week"
-// hybrid policy, pro-rated down for holidays/leave. Clamped at 0.
+// week. Two rules combine, taking whichever demands MORE office:
+//   1. The 50% pro-rata curve ceil((5 - H - L) / 2), capped at fullWeekMin.
+//   2. A flat floor fullWeekMin - H - L: each holiday/leave frees one office day.
+// With fullWeekMin = 3 the flat term never exceeds the 50% term, so this
+// reproduces the original rule exactly (3,2,2,1,1,0). Raising fullWeekMin above 3
+// forces more office days (e.g. 5 => office every non-off day, so no casual WFH);
+// lowering it models a relaxed "min N days/week" hybrid policy.
 export function weeklyOfficeMin(holidaysInWeek, leavesInWeek, fullWeekMin = DEFAULT_OFFICE_MIN) {
-  const fiftyPct = Math.ceil((NOMINAL_WORKWEEK - holidaysInWeek - leavesInWeek) / 2);
-  return Math.max(0, Math.min(fullWeekMin, fiftyPct));
+  const remaining = NOMINAL_WORKWEEK - holidaysInWeek - leavesInWeek;
+  const fiftyPctCapped = Math.min(fullWeekMin, Math.ceil(remaining / 2));
+  const flatFloor = fullWeekMin - holidaysInWeek - leavesInWeek;
+  return Math.max(0, fiftyPctCapped, flatFloor);
 }
 
 // Maximum days you may WFH in a normal week without taking leave: capped at 2,

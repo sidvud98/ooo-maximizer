@@ -1,39 +1,67 @@
-import { onOrBefore, year, pad2 } from './dates.js';
+import { onOrBefore, year, pad2, diffDays } from './dates.js';
 
 // Accrual model (confirmed with user):
-// - Credit posts at the START of each period. You earn a period's credit if you
-//   are employed on its first day (joiningDate <= period start).
+// - Credit posts at the START of each period (front-loaded): once a period has
+//   begun, you hold its full credit. The single exception is the period you join
+//   in, which is prorated by the share of the period from your join date onward.
 // - Sick: 1 / month, resets every calendar year (no carry-forward).
 // - Annual: 4.5 / quarter, carries forward across years.
 
 export const SICK_PER_MONTH = 1;
 export const ANNUAL_PER_QUARTER = 4.5;
 
-// Sick accrued during the calendar year of `asOf`, up to and including `asOf`.
+// Fraction of a period [start, endExclusive) credited given a join date:
+//   1 if employed before the period began, 0 if joined on/after it ends,
+//   otherwise the day-share from the join date to the period end (front-loaded).
+function periodFraction(joiningIso, startIso, endExclusiveIso) {
+  if (onOrBefore(joiningIso, startIso)) return 1;
+  if (onOrBefore(endExclusiveIso, joiningIso)) return 0;
+  const total = diffDays(startIso, endExclusiveIso);
+  const present = diffDays(joiningIso, endExclusiveIso);
+  return total > 0 ? present / total : 0;
+}
+
+// Sick accrued during the calendar year of `asOf`, prorating the joining month.
 export function accruedSick(joiningIso, asOfIso) {
   if (!joiningIso || !asOfIso) return { value: 0, periods: [] };
   const y = year(asOfIso);
   const periods = [];
+  let value = 0;
   for (let m = 0; m < 12; m++) {
-    const first = `${y}-${pad2(m + 1)}-01`;
-    if (onOrBefore(joiningIso, first) && onOrBefore(first, asOfIso)) periods.push(first);
+    const start = `${y}-${pad2(m + 1)}-01`;
+    if (!onOrBefore(start, asOfIso)) break; // month not started yet
+    const endExcl = m === 11 ? `${y + 1}-01-01` : `${y}-${pad2(m + 2)}-01`;
+    const frac = periodFraction(joiningIso, start, endExcl);
+    if (frac > 0) {
+      value += frac * SICK_PER_MONTH;
+      periods.push(start);
+    }
   }
-  return { value: periods.length * SICK_PER_MONTH, periods };
+  return { value, periods };
 }
 
-// Annual accrued from the joining year through `asOf` (carries forward).
+// Annual accrued from the joining year through `asOf` (carries forward),
+// prorating the joining quarter.
 export function accruedAnnual(joiningIso, asOfIso) {
   if (!joiningIso || !asOfIso) return { value: 0, periods: [] };
   const y0 = year(joiningIso);
   const y1 = year(asOfIso);
   const periods = [];
+  let value = 0;
+  const quarterStarts = [1, 4, 7, 10];
   for (let y = y0; y <= y1; y++) {
-    for (const mm of ['01', '04', '07', '10']) {
-      const first = `${y}-${mm}-01`;
-      if (onOrBefore(joiningIso, first) && onOrBefore(first, asOfIso)) periods.push(first);
+    for (const mm of quarterStarts) {
+      const start = `${y}-${pad2(mm)}-01`;
+      if (!onOrBefore(start, asOfIso)) break; // quarter not started yet
+      const endExcl = mm === 10 ? `${y + 1}-01-01` : `${y}-${pad2(mm + 3)}-01`;
+      const frac = periodFraction(joiningIso, start, endExcl);
+      if (frac > 0) {
+        value += frac * ANNUAL_PER_QUARTER;
+        periods.push(start);
+      }
     }
   }
-  return { value: periods.length * ANNUAL_PER_QUARTER, periods };
+  return { value, periods };
 }
 
 function pickOverride(raw) {
@@ -53,7 +81,7 @@ export function computeBalances(joiningIso, asOfIso, overrides = {}) {
   return {
     sick: sickValue,
     annual: annualValue,
-    spendable: sickValue + Math.floor(annualValue),
+    spendable: Math.floor(sickValue) + Math.floor(annualValue),
     derivedSick: sick.value,
     derivedAnnual: annual.value,
     sickPeriods: sick.periods,
@@ -85,6 +113,6 @@ export function makeBudgetFn(joiningIso, todayIso, overrides = {}) {
 
     sick = Math.max(0, sick);
     annual = Math.max(0, annual);
-    return { sick, annual, spendable: sick + Math.floor(annual) };
+    return { sick, annual, spendable: Math.floor(sick) + Math.floor(annual) };
   };
 }

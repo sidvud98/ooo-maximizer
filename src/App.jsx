@@ -203,9 +203,9 @@ export default function App() {
       </div>
 
       <footer className="app-foot muted small">
-        Office rule: min({officeMin}, ceil((5 - holidays - leaves) / 2)) days/week &middot; WFH max 2/week &middot; one{' '}
-        {blockLen}-week WFH block per half-year (back-to-back across Jun/Jul allowed). Results assume HR approves any plan
-        within these constraints.
+        Office rule: {officeMin} days/week, reduced 1 per holiday/leave, floored by the 50% attendance rule &middot; WFH max
+        2/week &middot; one {blockLen}-week WFH block per half-year (back-to-back across Jun/Jul allowed). Results assume HR
+        approves any plan within these constraints.
       </footer>
     </div>
   );

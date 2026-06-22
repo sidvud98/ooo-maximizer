@@ -134,7 +134,7 @@ export default function InputsPanel({ settings, balances, onChange }) {
           </Field>
         </div>
         <ul className="rules-list muted small">
-          <li>Office min = min({settings.officeMin === '' ? 3 : settings.officeMin}, ceil((5 - holidays - leaves) / 2)) per week</li>
+          <li>Office {settings.officeMin === '' ? 3 : settings.officeMin} days/week, minus 1 per holiday/leave (never below the 50% rule)</li>
           <li>WFH capped at 2 days/week (unless inside a WFH block)</li>
           <li>One {Number(settings.blockLen) === 4 ? 4 : 2}-week WFH block per half-year, back-to-back across Jun/Jul allowed</li>
           <li>1 sick/month (no carry-forward) · 4.5 annual/quarter (carries forward)</li>

@@ -18,7 +18,8 @@ const MAX_CANDIDATES = 8;
 const DEFAULT_BLOCK_LEN = 2; // weeks per half-yearly continuous-WFH block
 
 function normalizeConfig(config = {}) {
-  const officeMin = Number.isFinite(config.officeMin) ? config.officeMin : DEFAULT_OFFICE_MIN;
+  const rawOffice = Number.isFinite(config.officeMin) ? config.officeMin : DEFAULT_OFFICE_MIN;
+  const officeMin = Math.max(0, Math.min(NOMINAL_WORKWEEK, Math.round(rawOffice)));
   const blockLen = config.blockLen === 4 ? 4 : DEFAULT_BLOCK_LEN;
   return { officeMin, blockLen };
 }
@@ -35,7 +36,9 @@ function weekLeafCost(objective, k, H, out, isBlockWeek, officeMin) {
   if (objective === OBJ.OFF) return k; // every in-day must be a leave
   if (isBlockWeek) return 0; // a continuous-WFH block week is fully WFH (attendance waived)
   if (objective === OBJ.WFH) {
-    const cap = Math.min(MAX_WFH_PER_WEEK, Math.floor((NOMINAL_WORKWEEK - H) / 2));
+    // WFH days allowed in a normal week = working days minus required office,
+    // still capped by the absolute 2/week limit. Office-min aware.
+    const cap = Math.min(MAX_WFH_PER_WEEK, (NOMINAL_WORKWEEK - H) - weeklyOfficeMin(H, 0, officeMin));
     return k <= cap ? 0 : Infinity; // beyond the cap you must use a block
   }
   // OBJ.ANY: spend the fewest leaves; WFH covers up to MAX_WFH_PER_WEEK in-days for free.
@@ -205,9 +208,10 @@ function materializeWindow(days, weeksIndex, win, objective, budgetFn, officeMin
     else if (!roles[d.iso]) roles[d.iso] = { role: ROLE.OFFICE };
   }
 
-  // Split leaves: sick first (use-it-or-lose-it), then annual.
+  // Split leaves: sick first (use-it-or-lose-it), then annual. Only whole days
+  // are spendable, so fractional accrual is floored.
   const budget = budgetFn(win.startIso);
-  let sickLeft = budget.sick;
+  let sickLeft = Math.floor(budget.sick);
   let annualLeft = Math.floor(budget.annual);
   let sickSpent = 0;
   let annualSpent = 0;
