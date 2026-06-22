@@ -1,0 +1,675 @@
+:root {
+  --panel: var(--code-bg);
+  --panel-2: var(--social-bg);
+  --radius: 14px;
+  --c-office: #ef4444;
+  --c-wfh: #3b82f6;
+  --c-leave: #22c55e;
+  --c-holiday: #f59e0b;
+  --c-weekend: #94a3b8;
+  --c-sick: #f59e0b;
+  --c-annual: #a855f7;
+  --c-total: #14b8a6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 20px clamp(12px, 3vw, 28px) 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.muted {
+  color: var(--text);
+}
+.small {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ok {
+  color: var(--c-leave);
+}
+.warn {
+  color: var(--c-holiday);
+}
+
+/* ---------- App bar ---------- */
+.app-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 8px 4px;
+}
+.app-bar .muted {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+/* ---------- Layout ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 1080px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* ---------- Panels ---------- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.panel-head h2 {
+  margin: 0;
+}
+.warn-panel {
+  border-color: var(--c-holiday);
+  color: var(--c-holiday);
+}
+
+/* ---------- Inputs sidebar ---------- */
+.inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 16px;
+}
+@media (max-width: 1080px) {
+  .inputs {
+    position: static;
+  }
+}
+.inputs h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.field:last-child {
+  margin-bottom: 0;
+}
+.field-label {
+  color: var(--text);
+  font-weight: 500;
+}
+.field-hint {
+  color: var(--text);
+  opacity: 0.75;
+  font-size: 11.5px;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.field-row[data-disabled='true'] {
+  opacity: 0.5;
+}
+
+input[type='date'],
+input[type='number'],
+input[type='text'] {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 14px;
+}
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--text);
+  cursor: pointer;
+}
+.switch.block {
+  display: flex;
+  margin-bottom: 10px;
+}
+.switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.rules-list {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+.rules-list li {
+  margin: 2px 0;
+}
+
+/* ---------- Holiday editor ---------- */
+.holiday-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 4px;
+}
+.holiday-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 28px;
+  gap: 6px;
+  align-items: center;
+}
+.holiday-row input {
+  font-size: 12.5px;
+  padding: 6px 8px;
+}
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+.icon-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.icon-btn.add {
+  color: var(--c-leave);
+}
+
+/* ---------- Balance summary ---------- */
+.balance-summary {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 16px;
+  min-width: 110px;
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-h);
+  line-height: 1.1;
+}
+.stat-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.stat-sub {
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.8;
+}
+.stat.tone-sick {
+  border-bottom: 3px solid var(--c-sick);
+}
+.stat.tone-annual {
+  border-bottom: 3px solid var(--c-annual);
+}
+.stat.tone-total {
+  border-bottom: 3px solid var(--c-total);
+}
+.tone-sick {
+  color: var(--c-sick);
+}
+.tone-annual {
+  color: var(--c-annual);
+}
+
+/* ---------- Recommendation cards ---------- */
+.reco-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+@media (max-width: 760px) {
+  .reco-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.reco-card {
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  color: inherit;
+  font: inherit;
+}
+.reco-card:hover {
+  border-color: var(--accent-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+.reco-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.reco-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.reco-short {
+  font-weight: 600;
+  color: var(--text-h);
+  font-size: 14px;
+}
+.reco-eff {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-total);
+}
+.reco-length {
+  font-size: 14px;
+  color: var(--text);
+}
+.reco-length strong {
+  font-size: 30px;
+  color: var(--text-h);
+  margin-right: 4px;
+}
+.reco-range {
+  font-size: 13px;
+  color: var(--text);
+}
+.reco-empty {
+  color: var(--c-holiday);
+  font-size: 13px;
+  padding: 10px 0;
+}
+.reco-desc {
+  margin-top: auto;
+}
+
+.composition {
+  display: flex;
+  height: 8px;
+  border-radius: 5px;
+  overflow: hidden;
+  gap: 2px;
+  margin: 2px 0;
+}
+.composition-seg {
+  min-width: 4px;
+  border-radius: 2px;
+}
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.reco-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.badge-free {
+  color: var(--c-leave);
+  border-color: var(--c-leave);
+}
+.badge-leave {
+  color: var(--c-annual);
+  border-color: var(--c-annual);
+}
+.badge-wfh {
+  color: var(--c-wfh);
+  border-color: var(--c-wfh);
+}
+.badge-block {
+  color: var(--c-total);
+  border-color: var(--c-total);
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tab {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tab:hover {
+  border-color: var(--accent-border);
+}
+.tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ---------- Results grid ---------- */
+.results-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 1080px) {
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Save-up strategy ---------- */
+.saveup {
+  border-color: var(--accent-border);
+}
+.saveup-budget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  margin: 10px 0;
+}
+.saveup-result {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.saveup-result:hover {
+  border-color: var(--accent);
+}
+.saveup-length {
+  font-size: 15px;
+}
+.saveup-length strong {
+  font-size: 26px;
+  color: var(--text-h);
+}
+.saveup-cost {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.leave-schedule {
+  margin-top: 12px;
+}
+.leave-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.leave-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  background: var(--bg);
+}
+.leave-chip em {
+  font-style: normal;
+  opacity: 0.7;
+  font-weight: 400;
+  margin-left: 3px;
+}
+
+/* ---------- Table ---------- */
+.table-wrap h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--text-h);
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.windows-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.windows-table th,
+.windows-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.windows-table th {
+  text-align: left;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.windows-table td.num,
+.windows-table th.num {
+  text-align: right;
+}
+.windows-table td.strong {
+  font-weight: 700;
+  color: var(--text-h);
+}
+.windows-table tbody tr {
+  cursor: pointer;
+}
+.windows-table tbody tr:hover {
+  background: var(--panel-2);
+}
+.windows-table tbody tr.sel {
+  background: var(--accent-bg);
+}
+
+/* ---------- Legend ---------- */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text);
+}
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* ---------- Calendar ---------- */
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 16px;
+}
+.cal-month-title {
+  font-weight: 600;
+  color: var(--text-h);
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.cal-dow {
+  font-size: 10px;
+  text-align: center;
+  color: var(--text);
+  opacity: 0.6;
+  padding-bottom: 2px;
+}
+.cal-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--text-h);
+  background: var(--panel-2);
+  border: 1px solid transparent;
+}
+.cal-cell.blank {
+  background: transparent;
+}
+.cal-num {
+  opacity: 0.9;
+}
+.cal-cell.in-window {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  font-weight: 700;
+}
+.cal-cell.is-today {
+  outline: 2px dashed var(--text);
+  outline-offset: -3px;
+}
+.cal-dot {
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--c-holiday);
+}
+.cal-block {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-total);
+}
+
+/* role fills (calendar + legend swatches) */
+.role-office {
+  background: color-mix(in srgb, var(--c-office) 24%, var(--bg));
+}
+.role-wfh {
+  background: color-mix(in srgb, var(--c-wfh) 30%, var(--bg));
+}
+.role-leave {
+  background: color-mix(in srgb, var(--c-leave) 30%, var(--bg));
+}
+.role-holiday {
+  background: color-mix(in srgb, var(--c-holiday) 32%, var(--bg));
+}
+.role-weekend {
+  background: color-mix(in srgb, var(--c-weekend) 22%, var(--bg));
+}
+.day-workday {
+  background: var(--panel-2);
+}
+.legend-swatch.role-office {
+  background: var(--c-office);
+}
+.legend-swatch.role-wfh {
+  background: var(--c-wfh);
+}
+.legend-swatch.role-leave {
+  background: var(--c-leave);
+}
+.legend-swatch.role-holiday {
+  background: var(--c-holiday);
+}
+.legend-swatch.role-weekend {
+  background: var(--c-weekend);
+}
+
+.app-foot {
+  text-align: center;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
