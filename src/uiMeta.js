@@ -13,13 +13,13 @@ export const OBJECTIVE_META = {
     key: OBJ.WFH,
     short: 'Longest WFH',
     title: 'Longest work-from-home run',
-    desc: 'Consecutive days away from office using only WFH (max 2/week, or a 2-week block) bridged by weekends/holidays. No leave spent.',
+    desc: 'Consecutive days away from office using only WFH (max 2/week, or a half-yearly WFH block) bridged by weekends/holidays. No leave spent.',
   },
   [OBJ.ANY]: {
     key: OBJ.ANY,
     short: 'Longest Out-of-Office',
     title: 'Longest no-commute stretch',
-    desc: 'The maximum run with no office commute by any means: leave + WFH + holidays + weekends + 2-week blocks.',
+    desc: 'The maximum run with no office commute by any means: leave + WFH + holidays + weekends + half-yearly WFH blocks.',
   },
 };
 

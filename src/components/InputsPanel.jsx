@@ -67,6 +67,7 @@ export default function InputsPanel({ settings, balances, onChange }) {
 
       <section className="panel">
         <h2>Planning horizon</h2>
+        <p className="muted small" style={{ marginBottom: '16px'}}>Over what period am I willing to plan?</p>
         <div className="field-row">
           <Field label="From">
             <input type="date" value={settings.horizonStart} onChange={(e) => patch({ horizonStart: e.target.value })} />
@@ -89,9 +90,8 @@ export default function InputsPanel({ settings, balances, onChange }) {
             <span>Plan a specific window</span>
           </label>
         </h2>
-        <p className="muted small">
-          Pin the dates you want your big break. The planner shows how to save leaves until then and spend them for the
-          longest stretch.
+        <p className="muted small" style={{ marginBottom: '16px' }}>
+          I already know when I want time off — what's the best way to use my leaves in that slot?
         </p>
         <div className="field-row" data-disabled={!settings.targetEnabled}>
           <Field label="Window from">
@@ -115,17 +115,28 @@ export default function InputsPanel({ settings, balances, onChange }) {
 
       <section className="panel">
         <h2>Rules</h2>
-        <label className="switch block">
-          <input
-            type="checkbox"
-            checked={settings.allowChaining}
-            onChange={(e) => patch({ allowChaining: e.target.checked })}
-          />
-          <span>Allow chaining both 2-week WFH blocks across Jun/Jul (up to ~4 weeks)</span>
-        </label>
+        <div className="field-row">
+          <Field label="Min office days/week" hint="Full week, no leave. 3 = standard 50% rule.">
+            <input
+              type="number"
+              min="0"
+              max="5"
+              step="1"
+              value={settings.officeMin}
+              onChange={(e) => patch({ officeMin: e.target.value === '' ? '' : Number(e.target.value) })}
+            />
+          </Field>
+          <Field label="Half-yearly WFH" hint="One continuous block per half-year.">
+            <select value={settings.blockLen} onChange={(e) => patch({ blockLen: Number(e.target.value) })}>
+              <option value={2}>2 weeks</option>
+              <option value={4}>4 weeks</option>
+            </select>
+          </Field>
+        </div>
         <ul className="rules-list muted small">
-          <li>Office min = ceil((5 - holidays - leaves) / 2) per week</li>
-          <li>WFH capped at 2 days/week (unless inside a 2-week block)</li>
+          <li>Office min = min({settings.officeMin === '' ? 3 : settings.officeMin}, ceil((5 - holidays - leaves) / 2)) per week</li>
+          <li>WFH capped at 2 days/week (unless inside a WFH block)</li>
+          <li>One {Number(settings.blockLen) === 4 ? 4 : 2}-week WFH block per half-year, back-to-back across Jun/Jul allowed</li>
           <li>1 sick/month (no carry-forward) · 4.5 annual/quarter (carries forward)</li>
         </ul>
       </section>

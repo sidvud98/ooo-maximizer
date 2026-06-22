@@ -1,5 +1,5 @@
 import { buildTimeline, groupByWeek, DAY_TYPE } from './calendar.js';
-import { weeklyOfficeMin, NOMINAL_WORKWEEK, halfOfISO } from './attendance.js';
+import { weeklyOfficeMin, NOMINAL_WORKWEEK, MAX_WFH_PER_WEEK, DEFAULT_OFFICE_MIN, halfOfISO } from './attendance.js';
 import { makeBudgetFn } from './accrual.js';
 import { diffDays, onOrBefore } from './dates.js';
 
@@ -15,6 +15,13 @@ export const ROLE = {
 };
 
 const MAX_CANDIDATES = 8;
+const DEFAULT_BLOCK_LEN = 2; // weeks per half-yearly continuous-WFH block
+
+function normalizeConfig(config = {}) {
+  const officeMin = Number.isFinite(config.officeMin) ? config.officeMin : DEFAULT_OFFICE_MIN;
+  const blockLen = config.blockLen === 4 ? 4 : DEFAULT_BLOCK_LEN;
+  return { officeMin, blockLen };
+}
 
 // ---------------------------------------------------------------------------
 // Per-week minimum leave cost to make all in-window workdays "non-office".
@@ -23,17 +30,17 @@ const MAX_CANDIDATES = 8;
 // out  = workdays of the full week that are OUTSIDE the window (= 5 - H - k)
 // Returns the minimum leaves needed, or Infinity if impossible without a block.
 // ---------------------------------------------------------------------------
-function weekLeafCost(objective, k, H, out, isBlockWeek) {
+function weekLeafCost(objective, k, H, out, isBlockWeek, officeMin) {
   if (k === 0) return 0;
   if (objective === OBJ.OFF) return k; // every in-day must be a leave
-  if (isBlockWeek) return 0; // a 2-week block is fully WFH (attendance waived)
+  if (isBlockWeek) return 0; // a continuous-WFH block week is fully WFH (attendance waived)
   if (objective === OBJ.WFH) {
-    const cap = Math.min(2, Math.floor((NOMINAL_WORKWEEK - H) / 2));
+    const cap = Math.min(MAX_WFH_PER_WEEK, Math.floor((NOMINAL_WORKWEEK - H) / 2));
     return k <= cap ? 0 : Infinity; // beyond the cap you must use a block
   }
-  // OBJ.ANY: spend the fewest leaves; WFH covers up to 2 in-days for free.
-  for (let L = Math.max(0, k - 2); L <= k; L++) {
-    if (out >= weeklyOfficeMin(H, L)) return L;
+  // OBJ.ANY: spend the fewest leaves; WFH covers up to MAX_WFH_PER_WEEK in-days for free.
+  for (let L = Math.max(0, k - MAX_WFH_PER_WEEK); L <= k; L++) {
+    if (out >= weeklyOfficeMin(H, L, officeMin)) return L;
   }
   return k;
 }
@@ -45,7 +52,7 @@ function weekInfo(weeksIndex, monday) {
 
 // Evaluate a contiguous window [sIdx, eIdx]: total leaves required, or null if
 // infeasible (a full interior week needs a block that is not placed).
-function evalWindow(days, weeksIndex, sIdx, eIdx, objective, blockSet) {
+function evalWindow(days, weeksIndex, sIdx, eIdx, objective, blockSet, officeMin) {
   const perWeek = new Map();
   for (let i = sIdx; i <= eIdx; i++) {
     const d = days[i];
@@ -55,7 +62,7 @@ function evalWindow(days, weeksIndex, sIdx, eIdx, objective, blockSet) {
   for (const [monday, k] of perWeek) {
     const { H } = weekInfo(weeksIndex, monday);
     const out = NOMINAL_WORKWEEK - H - k;
-    const cost = weekLeafCost(objective, k, H, out, blockSet.has(monday));
+    const cost = weekLeafCost(objective, k, H, out, blockSet.has(monday), officeMin);
     if (!Number.isFinite(cost)) return null;
     leaves += cost;
   }
@@ -70,7 +77,7 @@ function withinRestrict(iso, restrict) {
 // Scan every window for one objective + block placement. Leaves grow
 // monotonically as a window expands, so we stop a start once it exceeds budget
 // or hits an infeasible interior week.
-function scanWindows(days, weeksIndex, objective, budgetFn, blockSet, restrict) {
+function scanWindows(days, weeksIndex, objective, budgetFn, blockSet, restrict, officeMin) {
   const n = days.length;
   let best = null;
   const perStartBest = [];
@@ -80,7 +87,7 @@ function scanWindows(days, weeksIndex, objective, budgetFn, blockSet, restrict) 
     let bestForStart = null;
     for (let e = s; e < n; e++) {
       if (restrict && !onOrBefore(days[e].iso, restrict.end)) break;
-      const r = evalWindow(days, weeksIndex, s, e, objective, blockSet);
+      const r = evalWindow(days, weeksIndex, s, e, objective, blockSet, officeMin);
       if (!r) break;
       if (r.leaves > budget) break;
       const length = e - s + 1;
@@ -98,36 +105,45 @@ function scanWindows(days, weeksIndex, objective, budgetFn, blockSet, restrict) 
   return { best, candidates: perStartBest };
 }
 
-// Enumerate valid 2-week WFH block placements (two consecutive full Mon-Fri
-// weeks). Returns the empty placement, every single block, and chained pairs
-// that bridge the Jun/Jul half-year boundary (4 consecutive weeks).
-function blockCandidates(weeksIndex, restrict) {
+// Enumerate valid continuous-WFH block placements. A block is `blockLen`
+// consecutive full Mon-Fri weeks (one block allowed per half-year). Returns the
+// empty placement and every single block.
+function blockCandidates(weeksIndex, restrict, blockLen) {
   const mondays = [...weeksIndex.keys()].sort((a, b) => a.localeCompare(b));
   const fullWeeks = mondays.filter((m) => weeksIndex.get(m).weekdayCount === 5);
   const blocks = [];
-  for (let i = 0; i + 1 < fullWeeks.length; i++) {
-    const m1 = fullWeeks[i];
-    const m2 = fullWeeks[i + 1];
-    if (diffDays(m1, m2) !== 7) continue;
-    if (restrict && !(withinRestrict(m1, restrict) && withinRestrict(m2, restrict))) continue;
-    blocks.push({ weeks: [m1, m2], half: halfOfISO(m1) });
+  for (let i = 0; i + blockLen - 1 < fullWeeks.length; i++) {
+    const weeks = [fullWeeks[i]];
+    let contiguous = true;
+    for (let j = 1; j < blockLen; j++) {
+      if (diffDays(fullWeeks[i + j - 1], fullWeeks[i + j]) !== 7) {
+        contiguous = false;
+        break;
+      }
+      weeks.push(fullWeeks[i + j]);
+    }
+    if (!contiguous) continue;
+    if (restrict && !weeks.every((w) => withinRestrict(w, restrict))) continue;
+    blocks.push({ weeks, half: halfOfISO(weeks[0]) });
   }
   return blocks;
 }
 
-function enumerateBlockSets(weeksIndex, restrict, allowChaining) {
-  const blocks = blockCandidates(weeksIndex, restrict);
+// Returns the empty placement, every single block, and back-to-back pairs of
+// blocks from different half-years that bridge the Jun/Jul boundary (one block
+// per half stays respected, e.g. two 4-week blocks -> 8 contiguous weeks).
+function enumerateBlockSets(weeksIndex, restrict, blockLen) {
+  const blocks = blockCandidates(weeksIndex, restrict, blockLen);
   const sets = [new Set()];
   for (const b of blocks) sets.push(new Set(b.weeks));
-  if (allowChaining) {
-    for (let i = 0; i < blocks.length; i++) {
-      for (let j = 0; j < blocks.length; j++) {
-        if (i === j) continue;
-        const a = blocks[i];
-        const b = blocks[j];
-        if (diffDays(a.weeks[1], b.weeks[0]) === 7 && a.half !== b.half) {
-          sets.push(new Set([...a.weeks, ...b.weeks]));
-        }
+  for (let i = 0; i < blocks.length; i++) {
+    for (let j = 0; j < blocks.length; j++) {
+      if (i === j) continue;
+      const a = blocks[i];
+      const b = blocks[j];
+      const aLast = a.weeks[a.weeks.length - 1];
+      if (diffDays(aLast, b.weeks[0]) === 7 && a.half !== b.half) {
+        sets.push(new Set([...a.weeks, ...b.weeks]));
       }
     }
   }
@@ -135,7 +151,7 @@ function enumerateBlockSets(weeksIndex, restrict, allowChaining) {
 }
 
 // Turn a chosen window into a concrete day-by-day plan plus summary stats.
-function materializeWindow(days, weeksIndex, win, objective, budgetFn) {
+function materializeWindow(days, weeksIndex, win, objective, budgetFn, officeMin) {
   const { sIdx, eIdx } = win;
   const blockSet = win.blockSet || new Set();
   const weekDays = new Map();
@@ -164,8 +180,8 @@ function materializeWindow(days, weeksIndex, win, objective, budgetFn) {
     else if (objective === OBJ.WFH) L = 0;
     else {
       L = k;
-      for (let cand = Math.max(0, k - 2); cand <= k; cand++) {
-        if (out >= weeklyOfficeMin(H, cand)) { L = cand; break; }
+      for (let cand = Math.max(0, k - MAX_WFH_PER_WEEK); cand <= k; cand++) {
+        if (out >= weeklyOfficeMin(H, cand, officeMin)) { L = cand; break; }
       }
     }
     totalLeaves += L;
@@ -240,7 +256,7 @@ function overlap(a, b) {
   return Math.max(0, hi - lo + 1);
 }
 
-function rankCandidates(cands, days, weeksIndex, objective, budgetFn) {
+function rankCandidates(cands, days, weeksIndex, objective, budgetFn, officeMin) {
   const sorted = [...cands].sort((a, b) => b.length - a.length || a.leaves - b.leaves);
   const picked = [];
   for (const c of sorted) {
@@ -250,38 +266,39 @@ function rankCandidates(cands, days, weeksIndex, objective, budgetFn) {
     if (dominated) continue;
     picked.push(c);
   }
-  return picked.map((c) => materializeWindow(days, weeksIndex, c, objective, budgetFn));
+  return picked.map((c) => materializeWindow(days, weeksIndex, c, objective, budgetFn, officeMin));
 }
 
-function optimizeObjective(days, weeksIndex, objective, budgetFn, restrict, allowChaining) {
-  const scenarios = objective === OBJ.OFF ? [new Set()] : enumerateBlockSets(weeksIndex, restrict, allowChaining);
+function optimizeObjective(days, weeksIndex, objective, budgetFn, restrict, config) {
+  const { officeMin, blockLen } = config;
+  const scenarios = objective === OBJ.OFF ? [new Set()] : enumerateBlockSets(weeksIndex, restrict, blockLen);
   let best = null;
   const allCands = [];
   for (const blockSet of scenarios) {
-    const { best: sBest, candidates } = scanWindows(days, weeksIndex, objective, budgetFn, blockSet, restrict);
+    const { best: sBest, candidates } = scanWindows(days, weeksIndex, objective, budgetFn, blockSet, restrict, officeMin);
     for (const c of candidates) allCands.push(c);
     if (sBest && (!best || sBest.length > best.length || (sBest.length === best.length && sBest.leaves < best.leaves))) {
       best = sBest;
     }
   }
   return {
-    best: best ? materializeWindow(days, weeksIndex, best, objective, budgetFn) : null,
-    candidates: rankCandidates(allCands, days, weeksIndex, objective, budgetFn),
+    best: best ? materializeWindow(days, weeksIndex, best, objective, budgetFn, officeMin) : null,
+    candidates: rankCandidates(allCands, days, weeksIndex, objective, budgetFn, officeMin),
   };
 }
 
 // Main entry point used by the UI.
 export function runPlanner(input) {
   const { startIso, endIso, todayIso, joiningIso, holidays, overrides, targetWindow } = input;
-  const allowChaining = input.allowChaining !== false;
+  const config = normalizeConfig(input.config);
   const days = buildTimeline(startIso, endIso, holidays);
   const weeksIndex = groupByWeek(days);
   const budgetFn = makeBudgetFn(joiningIso, todayIso, overrides);
 
   const result = {
-    [OBJ.OFF]: optimizeObjective(days, weeksIndex, OBJ.OFF, budgetFn, null, allowChaining),
-    [OBJ.WFH]: optimizeObjective(days, weeksIndex, OBJ.WFH, budgetFn, null, allowChaining),
-    [OBJ.ANY]: optimizeObjective(days, weeksIndex, OBJ.ANY, budgetFn, null, allowChaining),
+    [OBJ.OFF]: optimizeObjective(days, weeksIndex, OBJ.OFF, budgetFn, null, config),
+    [OBJ.WFH]: optimizeObjective(days, weeksIndex, OBJ.WFH, budgetFn, null, config),
+    [OBJ.ANY]: optimizeObjective(days, weeksIndex, OBJ.ANY, budgetFn, null, config),
   };
 
   let target = null;
@@ -290,9 +307,9 @@ export function runPlanner(input) {
     target = {
       range: restrict,
       budgetAtStart: budgetFn(targetWindow.start),
-      [OBJ.OFF]: optimizeObjective(days, weeksIndex, OBJ.OFF, budgetFn, restrict, allowChaining),
-      [OBJ.WFH]: optimizeObjective(days, weeksIndex, OBJ.WFH, budgetFn, restrict, allowChaining),
-      [OBJ.ANY]: optimizeObjective(days, weeksIndex, OBJ.ANY, budgetFn, restrict, allowChaining),
+      [OBJ.OFF]: optimizeObjective(days, weeksIndex, OBJ.OFF, budgetFn, restrict, config),
+      [OBJ.WFH]: optimizeObjective(days, weeksIndex, OBJ.WFH, budgetFn, restrict, config),
+      [OBJ.ANY]: optimizeObjective(days, weeksIndex, OBJ.ANY, budgetFn, restrict, config),
     };
   }
 

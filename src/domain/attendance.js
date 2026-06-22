@@ -3,11 +3,17 @@ import { monthIndex } from './dates.js';
 // A nominal working week is 5 days (Mon-Fri).
 export const NOMINAL_WORKWEEK = 5;
 export const MAX_WFH_PER_WEEK = 2;
+export const DEFAULT_OFFICE_MIN = 3;
 
 // Mandatory office days in a week, given H public holidays and L leaves that
-// week: office_min = ceil((5 - H - L) / 2). Confirmed rule. Clamped at 0.
-export function weeklyOfficeMin(holidaysInWeek, leavesInWeek) {
-  return Math.max(0, Math.ceil((NOMINAL_WORKWEEK - holidaysInWeek - leavesInWeek) / 2));
+// week. The base rule is the 50% pro-rata curve ceil((5 - H - L) / 2), capped
+// by a configurable full-week minimum `fullWeekMin` (default 3). With
+// fullWeekMin = 3 this reproduces the original rule exactly (since the 50% curve
+// never exceeds 3 for a 5-day week); lowering it models e.g. a "min 2 days/week"
+// hybrid policy, pro-rated down for holidays/leave. Clamped at 0.
+export function weeklyOfficeMin(holidaysInWeek, leavesInWeek, fullWeekMin = DEFAULT_OFFICE_MIN) {
+  const fiftyPct = Math.ceil((NOMINAL_WORKWEEK - holidaysInWeek - leavesInWeek) / 2);
+  return Math.max(0, Math.min(fullWeekMin, fiftyPct));
 }
 
 // Maximum days you may WFH in a normal week without taking leave: capped at 2,
