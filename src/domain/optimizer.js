@@ -20,7 +20,7 @@ const DEFAULT_BLOCK_LEN = 2; // weeks per half-yearly continuous-WFH block
 function normalizeConfig(config = {}) {
   const rawOffice = Number.isFinite(config.officeMin) ? config.officeMin : DEFAULT_OFFICE_MIN;
   const officeMin = Math.max(0, Math.min(NOMINAL_WORKWEEK, Math.round(rawOffice)));
-  const blockLen = config.blockLen === 4 ? 4 : DEFAULT_BLOCK_LEN;
+  const blockLen = [0, 2, 4].includes(config.blockLen) ? config.blockLen : DEFAULT_BLOCK_LEN;
   return { officeMin, blockLen };
 }
 
@@ -112,6 +112,7 @@ function scanWindows(days, weeksIndex, objective, budgetFn, blockSet, restrict, 
 // consecutive full Mon-Fri weeks (one block allowed per half-year). Returns the
 // empty placement and every single block.
 function blockCandidates(weeksIndex, restrict, blockLen) {
+  if (blockLen < 1) return []; // "None": no half-yearly WFH block granted
   const mondays = [...weeksIndex.keys()].sort((a, b) => a.localeCompare(b));
   const fullWeeks = mondays.filter((m) => weeksIndex.get(m).weekdayCount === 5);
   const blocks = [];
@@ -293,11 +294,11 @@ function optimizeObjective(days, weeksIndex, objective, budgetFn, restrict, conf
 
 // Main entry point used by the UI.
 export function runPlanner(input) {
-  const { startIso, endIso, todayIso, joiningIso, holidays, overrides, targetWindow } = input;
+  const { startIso, endIso, todayIso, joiningIso, holidays, overrides, targetWindow, rates } = input;
   const config = normalizeConfig(input.config);
   const days = buildTimeline(startIso, endIso, holidays);
   const weeksIndex = groupByWeek(days);
-  const budgetFn = makeBudgetFn(joiningIso, todayIso, overrides);
+  const budgetFn = makeBudgetFn(joiningIso, todayIso, overrides, rates);
 
   const result = {
     [OBJ.OFF]: optimizeObjective(days, weeksIndex, OBJ.OFF, budgetFn, null, config),

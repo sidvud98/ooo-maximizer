@@ -63,6 +63,26 @@ export default function InputsPanel({ settings, balances, onChange }) {
           </Field>
         </div>
         <p className="muted small">Leave the balance fields empty to use the derived values. Type a number to override.</p>
+        <div className="field-row">
+          <Field label="Sick / month" hint="Accrual rate (default 1).">
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={settings.sickPerMonth}
+              onChange={(e) => patch({ sickPerMonth: e.target.value === '' ? '' : Number(e.target.value) })}
+            />
+          </Field>
+          <Field label="Annual / quarter" hint="Accrual rate (default 4.5).">
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={settings.annualPerQuarter}
+              onChange={(e) => patch({ annualPerQuarter: e.target.value === '' ? '' : Number(e.target.value) })}
+            />
+          </Field>
+        </div>
       </section>
 
       <section className="panel">
@@ -126,8 +146,9 @@ export default function InputsPanel({ settings, balances, onChange }) {
               onChange={(e) => patch({ officeMin: e.target.value === '' ? '' : Number(e.target.value) })}
             />
           </Field>
-          <Field label="Half-yearly WFH" hint="One continuous block per half-year.">
+          <Field label="Half-yearly WFH" hint="One continuous block per half-year (None disables it).">
             <select value={settings.blockLen} onChange={(e) => patch({ blockLen: Number(e.target.value) })}>
+              <option value={0}>None</option>
               <option value={2}>2 weeks</option>
               <option value={4}>4 weeks</option>
             </select>
@@ -136,8 +157,15 @@ export default function InputsPanel({ settings, balances, onChange }) {
         <ul className="rules-list muted small">
           <li>Office {settings.officeMin === '' ? 3 : settings.officeMin} days/week, minus 1 per holiday/leave (never below the 50% rule)</li>
           <li>WFH capped at 2 days/week (unless inside a WFH block)</li>
-          <li>One {Number(settings.blockLen) === 4 ? 4 : 2}-week WFH block per half-year, back-to-back across Jun/Jul allowed</li>
-          <li>1 sick/month (no carry-forward) · 4.5 annual/quarter (carries forward)</li>
+          <li>
+            {Number(settings.blockLen) === 0
+              ? 'No half-yearly WFH block'
+              : `One ${Number(settings.blockLen) === 4 ? 4 : 2}-week WFH block per half-year, back-to-back across Jun/Jul allowed`}
+          </li>
+          <li>
+            {settings.sickPerMonth === '' ? 1 : settings.sickPerMonth} sick/month (no carry-forward) &middot;{' '}
+            {settings.annualPerQuarter === '' ? 4.5 : settings.annualPerQuarter} annual/quarter (carries forward)
+          </li>
         </ul>
       </section>
 

@@ -22,8 +22,9 @@ function periodFraction(joiningIso, startIso, endExclusiveIso) {
 }
 
 // Sick accrued during the calendar year of `asOf`, prorating the joining month.
-export function accruedSick(joiningIso, asOfIso) {
+export function accruedSick(joiningIso, asOfIso, perMonth = SICK_PER_MONTH) {
   if (!joiningIso || !asOfIso) return { value: 0, periods: [] };
+  const rate = Number.isFinite(perMonth) ? perMonth : SICK_PER_MONTH;
   const y = year(asOfIso);
   const periods = [];
   let value = 0;
@@ -33,7 +34,7 @@ export function accruedSick(joiningIso, asOfIso) {
     const endExcl = m === 11 ? `${y + 1}-01-01` : `${y}-${pad2(m + 2)}-01`;
     const frac = periodFraction(joiningIso, start, endExcl);
     if (frac > 0) {
-      value += frac * SICK_PER_MONTH;
+      value += frac * rate;
       periods.push(start);
     }
   }
@@ -42,8 +43,9 @@ export function accruedSick(joiningIso, asOfIso) {
 
 // Annual accrued from the joining year through `asOf` (carries forward),
 // prorating the joining quarter.
-export function accruedAnnual(joiningIso, asOfIso) {
+export function accruedAnnual(joiningIso, asOfIso, perQuarter = ANNUAL_PER_QUARTER) {
   if (!joiningIso || !asOfIso) return { value: 0, periods: [] };
+  const rate = Number.isFinite(perQuarter) ? perQuarter : ANNUAL_PER_QUARTER;
   const y0 = year(joiningIso);
   const y1 = year(asOfIso);
   const periods = [];
@@ -56,7 +58,7 @@ export function accruedAnnual(joiningIso, asOfIso) {
       const endExcl = mm === 10 ? `${y + 1}-01-01` : `${y}-${pad2(mm + 3)}-01`;
       const frac = periodFraction(joiningIso, start, endExcl);
       if (frac > 0) {
-        value += frac * ANNUAL_PER_QUARTER;
+        value += frac * rate;
         periods.push(start);
       }
     }
@@ -71,9 +73,9 @@ function pickOverride(raw) {
 }
 
 // Current balances as of `asOf`, applying manual overrides when supplied.
-export function computeBalances(joiningIso, asOfIso, overrides = {}) {
-  const sick = accruedSick(joiningIso, asOfIso);
-  const annual = accruedAnnual(joiningIso, asOfIso);
+export function computeBalances(joiningIso, asOfIso, overrides = {}, rates = {}) {
+  const sick = accruedSick(joiningIso, asOfIso, rates.sickPerMonth);
+  const annual = accruedAnnual(joiningIso, asOfIso, rates.annualPerQuarter);
   const ovSick = pickOverride(overrides.sick);
   const ovAnnual = pickOverride(overrides.annual);
   const sickValue = ovSick != null ? ovSick : sick.value;
@@ -95,15 +97,17 @@ export function computeBalances(joiningIso, asOfIso, overrides = {}) {
 // This powers the "save up then spend" semantics: a window may only use leaves
 // that have accrued by its start date. Overrides are treated as the balance as
 // of today, with future accrual added on top.
-export function makeBudgetFn(joiningIso, todayIso, overrides = {}) {
+export function makeBudgetFn(joiningIso, todayIso, overrides = {}, rates = {}) {
+  const sickRate = rates.sickPerMonth;
+  const annualRate = rates.annualPerQuarter;
   const ovSick = pickOverride(overrides.sick);
   const ovAnnual = pickOverride(overrides.annual);
-  const baseSickToday = accruedSick(joiningIso, todayIso).value;
-  const baseAnnualToday = accruedAnnual(joiningIso, todayIso).value;
+  const baseSickToday = accruedSick(joiningIso, todayIso, sickRate).value;
+  const baseAnnualToday = accruedAnnual(joiningIso, todayIso, annualRate).value;
 
   return (iso) => {
-    const dSick = accruedSick(joiningIso, iso).value;
-    const dAnnual = accruedAnnual(joiningIso, iso).value;
+    const dSick = accruedSick(joiningIso, iso, sickRate).value;
+    const dAnnual = accruedAnnual(joiningIso, iso, annualRate).value;
 
     let annual = ovAnnual == null ? dAnnual : ovAnnual + Math.max(0, dAnnual - baseAnnualToday);
     let sick;
