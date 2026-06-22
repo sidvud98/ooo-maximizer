@@ -20,14 +20,6 @@ export function weeklyOfficeMin(holidaysInWeek, leavesInWeek, fullWeekMin = DEFA
   return Math.max(0, fiftyPctCapped, flatFloor);
 }
 
-// Maximum days you may WFH in a normal week without taking leave: capped at 2,
-// but also bounded by the attendance rule when holidays shrink the week.
-// You must still office at least ceil((5 - H) / 2) of the remaining days, so the
-// regular WFH ceiling is min(2, floor((5 - H) / 2)).
-export function regularWfhCap(holidaysInWeek) {
-  return Math.min(MAX_WFH_PER_WEEK, Math.floor((NOMINAL_WORKWEEK - holidaysInWeek) / 2));
-}
-
 // Jan-Jun => H1, Jul-Dec => H2. One 2-week WFH block is allowed per half.
 export function halfOfMonthIndex(mIdx) {
   return mIdx <= 5 ? 'H1' : 'H2';

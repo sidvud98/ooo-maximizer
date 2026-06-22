@@ -122,6 +122,16 @@ export default function InputsPanel({ settings, balances, onChange }) {
                 />
               </Field>
             </Box>
+            <Field label="Annual carryover cap" hint="Max annual days that roll into a new year (default 45).">
+              <TextField
+                type="number"
+                size="small"
+                fullWidth
+                slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
+                value={settings.annualCarryCap}
+                onChange={(e) => patch({ annualCarryCap: e.target.value === '' ? '' : Number(e.target.value) })}
+              />
+            </Field>
           </Stack>
         </CardContent>
       </Card>
@@ -251,9 +261,13 @@ export default function InputsPanel({ settings, balances, onChange }) {
                 ? 'No half-yearly WFH block'
                 : `One ${Number(settings.blockLen) === 4 ? 4 : 2}-week WFH block per half-year, back-to-back across Jun/Jul allowed`}
             </Typography>
-            <Typography component="li" variant="caption">
+            <Typography component="li" variant="caption" sx={{ mb: 0.5 }}>
               {settings.sickPerMonth === '' ? 1 : settings.sickPerMonth} sick/month (no carry-forward) ·{' '}
               {settings.annualPerQuarter === '' ? 4.5 : settings.annualPerQuarter} annual/quarter (carries forward)
+            </Typography>
+            <Typography component="li" variant="caption">
+              Annual carryover capped at {settings.annualCarryCap === '' ? 45 : settings.annualCarryCap} days rolled into
+              each new year
             </Typography>
           </Box>
         </CardContent>

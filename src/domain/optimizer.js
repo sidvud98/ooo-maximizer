@@ -1,7 +1,7 @@
 import { buildTimeline, groupByWeek, DAY_TYPE } from './calendar.js';
 import { weeklyOfficeMin, NOMINAL_WORKWEEK, MAX_WFH_PER_WEEK, DEFAULT_OFFICE_MIN, halfOfISO } from './attendance.js';
 import { makeBudgetFn } from './accrual.js';
-import { diffDays, onOrBefore } from './dates.js';
+import { diffDays, onOrBefore, year } from './dates.js';
 
 // Objective keys.
 export const OBJ = { OFF: 'OFF', WFH: 'WFH', ANY: 'ANY' };
@@ -53,23 +53,35 @@ function weekInfo(weeksIndex, monday) {
   return { H: w ? w.holidaysInWeek : 0 };
 }
 
-// Evaluate a contiguous window [sIdx, eIdx]: total leaves required, or null if
-// infeasible (a full interior week needs a block that is not placed).
-function evalWindow(days, weeksIndex, sIdx, eIdx, objective, blockSet, officeMin) {
-  const perWeek = new Map();
+// Evaluate a contiguous window [sIdx, eIdx]: total leaves required (and how many
+// of them fall in `startYear`), or null if infeasible (a full interior week needs
+// a block that is not placed).
+function evalWindow(days, weeksIndex, sIdx, eIdx, objective, blockSet, officeMin, startYear) {
+  const perWeek = new Map(); // monday -> workday indices, in date order
   for (let i = sIdx; i <= eIdx; i++) {
     const d = days[i];
-    if (d.type === DAY_TYPE.WORKDAY) perWeek.set(d.monday, (perWeek.get(d.monday) || 0) + 1);
+    if (d.type === DAY_TYPE.WORKDAY) {
+      const arr = perWeek.get(d.monday) || [];
+      arr.push(i);
+      perWeek.set(d.monday, arr);
+    }
   }
   let leaves = 0;
-  for (const [monday, k] of perWeek) {
+  let leavesStartYear = 0;
+  for (const [monday, idxs] of perWeek) {
     const { H } = weekInfo(weeksIndex, monday);
+    const k = idxs.length;
     const out = NOMINAL_WORKWEEK - H - k;
     const cost = weekLeafCost(objective, k, H, out, blockSet.has(monday), officeMin);
     if (!Number.isFinite(cost)) return null;
     leaves += cost;
+    // Leave days are the LAST `cost` workdays of the week (mirrors materializeWindow);
+    // count those that fall in the window's start year (the only sick-eligible ones).
+    for (let j = idxs.length - cost; j < idxs.length; j++) {
+      if (j >= 0 && year(days[idxs[j]].iso) === startYear) leavesStartYear += 1;
+    }
   }
-  return { leaves };
+  return { leaves, leavesStartYear };
 }
 
 function withinRestrict(iso, restrict) {
@@ -86,13 +98,20 @@ function scanWindows(days, weeksIndex, objective, budgetFn, blockSet, restrict, 
   const perStartBest = [];
   for (let s = 0; s < n; s++) {
     if (!withinRestrict(days[s].iso, restrict)) continue;
-    const budget = budgetFn(days[s].iso).spendable;
+    const startYear = year(days[s].iso);
+    const bud = budgetFn(days[s].iso);
+    const annualPool = Math.floor(bud.annual); // carries forward; usable any day
+    const sickStart = Math.floor(bud.sick); // usable only on start-year days
     let bestForStart = null;
     for (let e = s; e < n; e++) {
       if (restrict && !onOrBefore(days[e].iso, restrict.end)) break;
-      const r = evalWindow(days, weeksIndex, s, e, objective, blockSet, officeMin);
+      const r = evalWindow(days, weeksIndex, s, e, objective, blockSet, officeMin, startYear);
       if (!r) break;
-      if (r.leaves > budget) break;
+      // Sick covers up to `sickStart` of the start-year leaves; the leftover
+      // start-year leaves plus every later-year leave must come from annual (sick
+      // resets Jan 1 and next-year sick has not accrued by the window start).
+      const annualNeeded = Math.max(0, r.leavesStartYear - sickStart) + (r.leaves - r.leavesStartYear);
+      if (annualNeeded > annualPool) break;
       const length = e - s + 1;
       const cand = {
         sIdx: s, eIdx: e, startIso: days[s].iso, endIso: days[e].iso,
@@ -212,6 +231,7 @@ function materializeWindow(days, weeksIndex, win, objective, budgetFn, officeMin
   // Split leaves: sick first (use-it-or-lose-it), then annual. Only whole days
   // are spendable, so fractional accrual is floored.
   const budget = budgetFn(win.startIso);
+  const startYear = year(win.startIso);
   let sickLeft = Math.floor(budget.sick);
   let annualLeft = Math.floor(budget.annual);
   let sickSpent = 0;
@@ -221,7 +241,9 @@ function materializeWindow(days, weeksIndex, win, objective, budgetFn, officeMin
     const d = days[i];
     const r = roles[d.iso];
     if (r.role === ROLE.LEAVE) {
-      if (sickLeft >= 1) { r.leaveType = 'SICK'; sickLeft -= 1; sickSpent += 1; }
+      // Sick is use-it-or-lose-it within its year, so it can only cover leave days
+      // in the window's start year; everything else falls back to annual.
+      if (sickLeft >= 1 && year(d.iso) === startYear) { r.leaveType = 'SICK'; sickLeft -= 1; sickSpent += 1; }
       else if (annualLeft >= 1) { r.leaveType = 'ANNUAL'; annualLeft -= 1; annualSpent += 1; }
       else { r.leaveType = 'ANNUAL'; annualSpent += 1; }
     }

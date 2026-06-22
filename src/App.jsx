@@ -39,6 +39,7 @@ function defaultSettings() {
     blockLen: 2,
     sickPerMonth: 1,
     annualPerQuarter: 4.5,
+    annualCarryCap: 45,
     holidays: DEFAULT_HOLIDAYS,
   };
 }
@@ -89,6 +90,7 @@ export default function App() {
 
   const sickPerMonth = Number.isFinite(Number(settings.sickPerMonth)) ? Number(settings.sickPerMonth) : 1;
   const annualPerQuarter = Number.isFinite(Number(settings.annualPerQuarter)) ? Number(settings.annualPerQuarter) : 4.5;
+  const annualCarryCap = Number.isFinite(Number(settings.annualCarryCap)) ? Number(settings.annualCarryCap) : 45;
 
   const balances = useMemo(
     () =>
@@ -96,9 +98,17 @@ export default function App() {
         settings.joiningDate,
         today,
         { sick: settings.overrideSick, annual: settings.overrideAnnual },
-        { sickPerMonth, annualPerQuarter },
+        { sickPerMonth, annualPerQuarter, annualCarryCap },
       ),
-    [settings.joiningDate, settings.overrideSick, settings.overrideAnnual, today, sickPerMonth, annualPerQuarter],
+    [
+      settings.joiningDate,
+      settings.overrideSick,
+      settings.overrideAnnual,
+      today,
+      sickPerMonth,
+      annualPerQuarter,
+      annualCarryCap,
+    ],
   );
 
   const validHorizon = onOrBefore(settings.horizonStart, settings.horizonEnd);
@@ -117,10 +127,10 @@ export default function App() {
       holidays: settings.holidays,
       overrides: { sick: settings.overrideSick, annual: settings.overrideAnnual },
       config: { officeMin, blockLen },
-      rates: { sickPerMonth, annualPerQuarter },
+      rates: { sickPerMonth, annualPerQuarter, annualCarryCap },
       targetWindow: settings.targetEnabled ? { start: settings.targetStart, end: settings.targetEnd } : null,
     };
-  }, [settings, today, validHorizon, officeMin, blockLen, sickPerMonth, annualPerQuarter]);
+  }, [settings, today, validHorizon, officeMin, blockLen, sickPerMonth, annualPerQuarter, annualCarryCap]);
 
   const { plan, pending } = usePlanner(input);
 
