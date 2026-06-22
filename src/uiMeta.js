@@ -21,7 +21,7 @@ export const OBJECTIVE_META = {
     key: OBJ.OFF,
     short: 'Longest Vacation',
     title: 'Longest fully-off stretch',
-    desc: 'Consecutive days doing zero work: weekends + public holidays + annual & sick leave. No WFH inside.',
+    desc: 'Consecutive days doing zero work: weekends + public holidays + planned & sick leave. No WFH inside.',
   },
   [OBJ.WFH]: {
     key: OBJ.WFH,

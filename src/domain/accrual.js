@@ -5,11 +5,11 @@ import { onOrBefore, year, pad2, diffDays } from './dates.js';
 //   begun, you hold its full credit. The single exception is the period you join
 //   in, which is prorated by the share of the period from your join date onward.
 // - Sick: 1 / month, resets every calendar year (no carry-forward).
-// - Annual: 4.5 / quarter, carries forward across years.
+// - Planned: 4.5 / quarter (or 1.5 / month), carries forward across years.
 
 export const SICK_PER_MONTH = 1;
 export const ANNUAL_PER_QUARTER = 4.5;
-// Max annual leave that rolls over into a new calendar year. The balance carried
+// Max planned leave that rolls over into a new calendar year. The balance carried
 // into each Jan 1 is clamped to this; the year's fresh accrual is then added on
 // top (so the peak balance can exceed the cap mid/late year, e.g. 45 + 18 = 63).
 export const ANNUAL_CARRY_CAP = 45;
@@ -18,13 +18,30 @@ function resolveCap(carryCap) {
   return Number.isFinite(carryCap) ? carryCap : ANNUAL_CARRY_CAP;
 }
 
-// Highest annual balance reachable at `asOf` under the rollover cap: the cap
+function resolveAccrualPeriod(period) {
+  return period === 'monthly' ? 'monthly' : 'quarterly';
+}
+
+function periodStarts(period) {
+  if (period === 'monthly') return Array.from({ length: 12 }, (_, i) => i + 1);
+  return [1, 4, 7, 10];
+}
+
+function periodEndExclusive(y, startMonth, period) {
+  if (period === 'monthly') {
+    return startMonth === 12 ? `${y + 1}-01-01` : `${y}-${pad2(startMonth + 1)}-01`;
+  }
+  return startMonth === 10 ? `${y + 1}-01-01` : `${y}-${pad2(startMonth + 3)}-01`;
+}
+
+// Highest planned balance reachable at `asOf` under the rollover cap: the cap
 // carried in, plus this calendar year's accrual to date (assumes an established
 // employee, which is the only case where an override is meaningful).
-function annualYearCeiling(asOfIso, rate, cap) {
+function annualYearCeiling(asOfIso, rate, cap, period = 'quarterly') {
   const y = year(asOfIso);
+  const accrualPeriod = resolveAccrualPeriod(period);
   let started = 0;
-  for (const mm of [1, 4, 7, 10]) {
+  for (const mm of periodStarts(accrualPeriod)) {
     if (onOrBefore(`${y}-${pad2(mm)}-01`, asOfIso)) started += 1;
   }
   return cap + started * rate;
@@ -61,23 +78,30 @@ export function accruedSick(joiningIso, asOfIso, perMonth = SICK_PER_MONTH) {
   return { value, periods };
 }
 
-// Annual accrued from the joining year through `asOf` (carries forward),
-// prorating the joining quarter.
-export function accruedAnnual(joiningIso, asOfIso, perQuarter = ANNUAL_PER_QUARTER, carryCap = ANNUAL_CARRY_CAP) {
+// Planned leave accrued from the joining year through `asOf` (carries forward),
+// prorating the joining period.
+export function accruedAnnual(
+  joiningIso,
+  asOfIso,
+  perPeriod = ANNUAL_PER_QUARTER,
+  carryCap = ANNUAL_CARRY_CAP,
+  accrualPeriod = 'quarterly',
+) {
   if (!joiningIso || !asOfIso) return { value: 0, periods: [] };
-  const rate = Number.isFinite(perQuarter) ? perQuarter : ANNUAL_PER_QUARTER;
+  const rate = Number.isFinite(perPeriod) ? perPeriod : ANNUAL_PER_QUARTER;
   const cap = resolveCap(carryCap);
+  const period = resolveAccrualPeriod(accrualPeriod);
   const y0 = year(joiningIso);
   const y1 = year(asOfIso);
   const periods = [];
   let value = 0;
-  const quarterStarts = [1, 4, 7, 10];
+  const starts = periodStarts(period);
   for (let y = y0; y <= y1; y++) {
     value = Math.min(value, cap); // clamp the rollover carried into this year
-    for (const mm of quarterStarts) {
+    for (const mm of starts) {
       const start = `${y}-${pad2(mm)}-01`;
-      if (!onOrBefore(start, asOfIso)) break; // quarter not started yet
-      const endExcl = mm === 10 ? `${y + 1}-01-01` : `${y}-${pad2(mm + 3)}-01`;
+      if (!onOrBefore(start, asOfIso)) break; // period not started yet
+      const endExcl = periodEndExclusive(y, mm, period);
       const frac = periodFraction(joiningIso, start, endExcl);
       if (frac > 0) {
         value += frac * rate;
@@ -97,8 +121,9 @@ function pickOverride(raw) {
 // Current balances as of `asOf`, applying manual overrides when supplied.
 export function computeBalances(joiningIso, asOfIso, overrides = {}, rates = {}) {
   const cap = resolveCap(rates.annualCarryCap);
+  const accrualPeriod = resolveAccrualPeriod(rates.annualAccrualPeriod);
   const sick = accruedSick(joiningIso, asOfIso, rates.sickPerMonth);
-  const annual = accruedAnnual(joiningIso, asOfIso, rates.annualPerQuarter, cap);
+  const annual = accruedAnnual(joiningIso, asOfIso, rates.annualPerQuarter, cap, accrualPeriod);
   const ovSick = pickOverride(overrides.sick);
   const ovAnnualRaw = pickOverride(overrides.annual);
   const ovAnnual = ovAnnualRaw == null ? null : Math.min(ovAnnualRaw, cap); // clamp override to the cap
@@ -125,16 +150,17 @@ export function makeBudgetFn(joiningIso, todayIso, overrides = {}, rates = {}) {
   const sickRate = rates.sickPerMonth;
   const annualRate = rates.annualPerQuarter;
   const annualRateResolved = Number.isFinite(annualRate) ? annualRate : ANNUAL_PER_QUARTER;
+  const accrualPeriod = resolveAccrualPeriod(rates.annualAccrualPeriod);
   const cap = resolveCap(rates.annualCarryCap);
   const ovSick = pickOverride(overrides.sick);
   const ovAnnualRaw = pickOverride(overrides.annual);
   const ovAnnual = ovAnnualRaw == null ? null : Math.min(ovAnnualRaw, cap); // clamp override to the cap
   const baseSickToday = accruedSick(joiningIso, todayIso, sickRate).value;
-  const baseAnnualToday = accruedAnnual(joiningIso, todayIso, annualRate, cap).value;
+  const baseAnnualToday = accruedAnnual(joiningIso, todayIso, annualRate, cap, accrualPeriod).value;
 
   return (iso) => {
     const dSick = accruedSick(joiningIso, iso, sickRate).value;
-    const dAnnual = accruedAnnual(joiningIso, iso, annualRate, cap).value;
+    const dAnnual = accruedAnnual(joiningIso, iso, annualRate, cap, accrualPeriod).value;
 
     let annual;
     if (ovAnnual == null) {
@@ -143,7 +169,10 @@ export function makeBudgetFn(joiningIso, todayIso, overrides = {}, rates = {}) {
       // Override is the balance as of today; add future capped accrual, then keep
       // the projection under the year's rollover ceiling.
       const future = Math.max(0, dAnnual - baseAnnualToday);
-      annual = Math.min(annualYearCeiling(iso, annualRateResolved, cap), ovAnnual + future);
+      annual = Math.min(
+        annualYearCeiling(iso, annualRateResolved, cap, accrualPeriod),
+        ovAnnual + future,
+      );
     }
 
     let sick;

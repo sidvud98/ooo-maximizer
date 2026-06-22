@@ -30,10 +30,24 @@ function Field({ label, hint, children }) {
   );
 }
 
+function roundRate(n) {
+  return Math.round(n * 10) / 10;
+}
+
 export default function InputsPanel({ settings, balances, onChange }) {
   const [newHoliday, setNewHoliday] = useState({ date: '', name: '' });
 
   const patch = (p) => onChange(p);
+
+  const isMonthlyAccrual = settings.annualAccrualPeriod === 'monthly';
+  const plannedPeriodLabel = isMonthlyAccrual ? 'month' : 'quarter';
+
+  const toggleAccrualPeriod = (toMonthly) => {
+    const currentRate = settings.annualPerQuarter === '' ? 4.5 : Number(settings.annualPerQuarter);
+    const rate = Number.isFinite(currentRate) ? currentRate : 4.5;
+    const converted = toMonthly ? roundRate(rate / 3) : roundRate(rate * 3);
+    patch({ annualAccrualPeriod: toMonthly ? 'monthly' : 'quarterly', annualPerQuarter: converted });
+  };
 
   const updateHoliday = (idx, key, value) => {
     const holidays = settings.holidays.map((h, i) => (i === idx ? { ...h, [key]: value } : h));
@@ -63,7 +77,7 @@ export default function InputsPanel({ settings, balances, onChange }) {
             Your profile
           </Typography>
           <Stack spacing={1.5}>
-            <Field label="Joining date" hint="Used to derive accrued sick & annual leave.">
+            <Field label="Joining date" hint="Used to derive accrued sick & planned leave.">
               <TextField
                 type="date"
                 size="small"
@@ -85,7 +99,7 @@ export default function InputsPanel({ settings, balances, onChange }) {
                   onChange={(e) => patch({ overrideSick: e.target.value })}
                 />
               </Field>
-              <Field label="Annual balance" hint={`Derived: ${fmtLeaves(balances.derivedAnnual)}`}>
+              <Field label="Planned balance" hint={`Derived: ${fmtLeaves(balances.derivedAnnual)}`}>
                 <TextField
                   type="number"
                   size="small"
@@ -111,7 +125,10 @@ export default function InputsPanel({ settings, balances, onChange }) {
                   onChange={(e) => patch({ sickPerMonth: e.target.value === '' ? '' : Number(e.target.value) })}
                 />
               </Field>
-              <Field label="Annual / quarter" hint="Accrual rate (default 4.5).">
+              <Field
+                label={`Planned / ${plannedPeriodLabel}`}
+                hint={`Accrual rate (default ${isMonthlyAccrual ? '1.5/month' : '4.5/quarter'}).`}
+              >
                 <TextField
                   type="number"
                   size="small"
@@ -122,7 +139,23 @@ export default function InputsPanel({ settings, balances, onChange }) {
                 />
               </Field>
             </Box>
-            <Field label="Annual carryover cap" hint="Max annual days that roll into a new year (default 45).">
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Planned leave accrues {isMonthlyAccrual ? 'monthly' : 'quarterly'}
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={isMonthlyAccrual}
+                    onChange={(e) => toggleAccrualPeriod(e.target.checked)}
+                  />
+                }
+                label={<Typography variant="caption">Monthly accrual</Typography>}
+                sx={{ mr: 0 }}
+              />
+            </Box>
+            <Field label="Planned carryover cap" hint="Max planned days that roll into a new year (default 45).">
               <TextField
                 type="number"
                 size="small"
@@ -263,10 +296,11 @@ export default function InputsPanel({ settings, balances, onChange }) {
             </Typography>
             <Typography component="li" variant="caption" sx={{ mb: 0.5 }}>
               {settings.sickPerMonth === '' ? 1 : settings.sickPerMonth} sick/month (no carry-forward) ·{' '}
-              {settings.annualPerQuarter === '' ? 4.5 : settings.annualPerQuarter} annual/quarter (carries forward)
+              {settings.annualPerQuarter === '' ? (isMonthlyAccrual ? 1.5 : 4.5) : settings.annualPerQuarter} planned/
+              {plannedPeriodLabel} (carries forward)
             </Typography>
             <Typography component="li" variant="caption">
-              Annual carryover capped at {settings.annualCarryCap === '' ? 45 : settings.annualCarryCap} days rolled into
+              Planned carryover capped at {settings.annualCarryCap === '' ? 45 : settings.annualCarryCap} days rolled into
               each new year
             </Typography>
           </Box>

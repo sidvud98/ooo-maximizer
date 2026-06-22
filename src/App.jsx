@@ -24,6 +24,8 @@ import CalendarTimeline from './components/CalendarTimeline.jsx';
 
 const STORAGE_KEY = 'leave-planner-v2';
 
+const LOGO_SRC = `${import.meta.env.BASE_URL}logo.png`;
+
 function defaultSettings() {
   return {
     joiningDate: '2024-07-01',
@@ -39,6 +41,7 @@ function defaultSettings() {
     blockLen: 2,
     sickPerMonth: 1,
     annualPerQuarter: 4.5,
+    annualAccrualPeriod: 'quarterly',
     annualCarryCap: 45,
     holidays: DEFAULT_HOLIDAYS,
   };
@@ -90,6 +93,7 @@ export default function App() {
 
   const sickPerMonth = Number.isFinite(Number(settings.sickPerMonth)) ? Number(settings.sickPerMonth) : 1;
   const annualPerQuarter = Number.isFinite(Number(settings.annualPerQuarter)) ? Number(settings.annualPerQuarter) : 4.5;
+  const annualAccrualPeriod = settings.annualAccrualPeriod === 'monthly' ? 'monthly' : 'quarterly';
   const annualCarryCap = Number.isFinite(Number(settings.annualCarryCap)) ? Number(settings.annualCarryCap) : 45;
 
   const balances = useMemo(
@@ -98,7 +102,7 @@ export default function App() {
         settings.joiningDate,
         today,
         { sick: settings.overrideSick, annual: settings.overrideAnnual },
-        { sickPerMonth, annualPerQuarter, annualCarryCap },
+        { sickPerMonth, annualPerQuarter, annualAccrualPeriod, annualCarryCap },
       ),
     [
       settings.joiningDate,
@@ -107,6 +111,7 @@ export default function App() {
       today,
       sickPerMonth,
       annualPerQuarter,
+      annualAccrualPeriod,
       annualCarryCap,
     ],
   );
@@ -127,10 +132,10 @@ export default function App() {
       holidays: settings.holidays,
       overrides: { sick: settings.overrideSick, annual: settings.overrideAnnual },
       config: { officeMin, blockLen },
-      rates: { sickPerMonth, annualPerQuarter, annualCarryCap },
+      rates: { sickPerMonth, annualPerQuarter, annualAccrualPeriod, annualCarryCap },
       targetWindow: settings.targetEnabled ? { start: settings.targetStart, end: settings.targetEnd } : null,
     };
-  }, [settings, today, validHorizon, officeMin, blockLen, sickPerMonth, annualPerQuarter, annualCarryCap]);
+  }, [settings, today, validHorizon, officeMin, blockLen, sickPerMonth, annualPerQuarter, annualAccrualPeriod, annualCarryCap]);
 
   const { plan, pending } = usePlanner(input);
 
@@ -165,20 +170,46 @@ export default function App() {
           sx={{
             display: 'flex',
             flexDirection: { xs: 'column', md: 'row' },
-            alignItems: { md: 'flex-start' },
+            alignItems: { xs: 'center', md: 'flex-start' },
             justifyContent: 'space-between',
             gap: 2,
             mb: 3,
           }}
         >
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              OOO Maximizer
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Sit Still? Id Rather Not. Plan the longest stretches out of the office — vacations, WFH runs, or a hybrid of
-              both.
-            </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              alignItems: { xs: 'center', sm: 'flex-start' },
+              gap: { xs: 1.5, sm: 2 },
+              minWidth: 0,
+              textAlign: { xs: 'center', sm: 'left' },
+            }}
+          >
+            <Box
+              component="img"
+              src={LOGO_SRC}
+              alt=""
+              aria-hidden
+              sx={{
+                width: { xs: 96, sm: 112, md: 128 },
+                height: { xs: 96, sm: 112, md: 128 },
+                minWidth: { xs: 96, sm: 112, md: 128 },
+                minHeight: { xs: 96, sm: 112, md: 128 },
+                flexShrink: 0,
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h4" component="h1" gutterBottom sx={{ mb: { xs: 0.5, sm: 1 } }}>
+                OOO Maximizer
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Sit Still? Id Rather Not. Plan the longest stretches out of the office — vacations, WFH runs, or a hybrid of
+                both.
+              </Typography>
+            </Box>
           </Box>
           <BalanceSummary balances={balances} asOfIso={today} />
         </Box>

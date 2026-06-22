@@ -33,7 +33,7 @@ export default function SaveUpStrategy({ target, focusKey, onSelect }) {
           </Typography>
           <Typography variant="body2">+</Typography>
           <Typography component="span" fontWeight={700} sx={{ color: TONE_COLORS['tone-annual'] }}>
-            {fmtLeaves(budget.annual)} annual
+            {fmtLeaves(budget.annual)} planned
           </Typography>
           <Typography variant="body2">= {fmtLeaves(budget.spendable)} spendable days.</Typography>
         </Box>
@@ -96,7 +96,7 @@ export default function SaveUpStrategy({ target, focusKey, onSelect }) {
                         <>
                           {formatShort(d.iso)}{' '}
                           <Box component="span" sx={{ fontStyle: 'italic', opacity: 0.9 }}>
-                            {d.leaveType === 'SICK' ? 'sick' : 'annual'}
+                            {d.leaveType === 'SICK' ? 'sick' : 'planned'}
                           </Box>
                         </>
                       }

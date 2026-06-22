@@ -42,7 +42,7 @@ export default function WindowsTable({ objectiveKey, candidates, selectedWin, on
               <TableCell>End</TableCell>
               <TableCell align="right">Days off</TableCell>
               <TableCell align="right">Workdays</TableCell>
-              <TableCell align="right">Annual</TableCell>
+              <TableCell align="right">Planned</TableCell>
               <TableCell align="right">Sick</TableCell>
               <TableCell align="right">WFH</TableCell>
               <TableCell align="right">Block</TableCell>

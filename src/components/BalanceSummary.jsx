@@ -34,14 +34,14 @@ export default function BalanceSummary({ balances, asOfIso }) {
       />
       <Stat
         value={fmtLeaves(balances.annual)}
-        label="Annual leave"
+        label="Planned leave"
         sub={balances.annualOverridden ? 'manual override' : `accrued by ${formatShort(asOfIso)}`}
         tone="tone-annual"
       />
       <Stat
         value={fmtLeaves(balances.spendable)}
         label="Spendable days"
-        sub="whole sick + whole annual days"
+        sub="whole sick + whole planned days"
         tone="tone-total"
       />
     </Box>
