@@ -28,6 +28,8 @@ function defaultSettings() {
     focus: OBJ.ANY,
     officeMin: 3,
     blockLen: 2,
+    sickPerMonth: 1,
+    annualPerQuarter: 4.5,
     holidays: DEFAULT_HOLIDAYS,
   };
 }
@@ -69,15 +71,26 @@ export default function App() {
   }, [settings, focus]);
 
   const today = todayISO();
+
+  const sickPerMonth = Number.isFinite(Number(settings.sickPerMonth)) ? Number(settings.sickPerMonth) : 1;
+  const annualPerQuarter = Number.isFinite(Number(settings.annualPerQuarter)) ? Number(settings.annualPerQuarter) : 4.5;
+
   const balances = useMemo(
-    () => computeBalances(settings.joiningDate, today, { sick: settings.overrideSick, annual: settings.overrideAnnual }),
-    [settings.joiningDate, settings.overrideSick, settings.overrideAnnual, today],
+    () =>
+      computeBalances(
+        settings.joiningDate,
+        today,
+        { sick: settings.overrideSick, annual: settings.overrideAnnual },
+        { sickPerMonth, annualPerQuarter },
+      ),
+    [settings.joiningDate, settings.overrideSick, settings.overrideAnnual, today, sickPerMonth, annualPerQuarter],
   );
 
   const validHorizon = onOrBefore(settings.horizonStart, settings.horizonEnd);
 
   const officeMin = Number.isFinite(Number(settings.officeMin)) ? Number(settings.officeMin) : 3;
-  const blockLen = Number(settings.blockLen) === 4 ? 4 : 2;
+  const blockLenRaw = Number(settings.blockLen);
+  const blockLen = blockLenRaw === 0 || blockLenRaw === 4 ? blockLenRaw : 2;
 
   const input = useMemo(() => {
     if (!validHorizon) return null;
@@ -89,9 +102,10 @@ export default function App() {
       holidays: settings.holidays,
       overrides: { sick: settings.overrideSick, annual: settings.overrideAnnual },
       config: { officeMin, blockLen },
+      rates: { sickPerMonth, annualPerQuarter },
       targetWindow: settings.targetEnabled ? { start: settings.targetStart, end: settings.targetEnd } : null,
     };
-  }, [settings, today, validHorizon, officeMin, blockLen]);
+  }, [settings, today, validHorizon, officeMin, blockLen, sickPerMonth, annualPerQuarter]);
 
   const { plan, pending } = usePlanner(input);
 
@@ -204,8 +218,11 @@ export default function App() {
 
       <footer className="app-foot muted small">
         Office rule: {officeMin} days/week, reduced 1 per holiday/leave, floored by the 50% attendance rule &middot; WFH max
-        2/week &middot; one {blockLen}-week WFH block per half-year (back-to-back across Jun/Jul allowed). Results assume HR
-        approves any plan within these constraints.
+        2/week &middot;{' '}
+        {blockLen === 0
+          ? 'no half-yearly WFH block'
+          : `one ${blockLen}-week WFH block per half-year (back-to-back across Jun/Jul allowed)`}
+        . Results assume HR approves any plan within these constraints.
       </footer>
     </div>
   );
