@@ -1,4 +1,5 @@
-import { OBJECTIVE_ORDER, OBJECTIVE_META, fmtLeaves, fmtEfficiency } from '../uiMeta.js';
+import { Box, Card, CardActionArea, CardContent, Chip, Typography } from '@mui/material';
+import { OBJECTIVE_ORDER, OBJECTIVE_META, fmtLeaves, fmtEfficiency, ROLE_COLORS } from '../uiMeta.js';
 import { formatShort } from '../domain/dates.js';
 
 function Composition({ win }) {
@@ -9,61 +10,118 @@ function Composition({ win }) {
     { n: win.sickSpent + win.annualSpent, cls: 'role-leave' },
   ].filter((p) => p.n > 0);
   const total = parts.reduce((a, p) => a + p.n, 0) || 1;
+
   return (
-    <div className="composition" title="Make-up of the stretch">
+    <Box
+      title="Make-up of the stretch"
+      sx={{
+        display: 'flex',
+        height: 6,
+        borderRadius: 1,
+        overflow: 'hidden',
+        bgcolor: 'action.hover',
+        my: 1,
+      }}
+    >
       {parts.map((p, i) => (
-        <span key={i} className={`composition-seg ${p.cls}`} style={{ flexGrow: p.n / total }} />
+        <Box
+          key={i}
+          sx={{
+            flexGrow: p.n / total,
+            bgcolor: ROLE_COLORS[p.cls],
+            minWidth: p.n > 0 ? 4 : 0,
+          }}
+        />
       ))}
-    </div>
+    </Box>
   );
 }
 
-function Card({ meta, data, selected, onSelect }) {
+function RecoCard({ meta, data, selected, onSelect }) {
   const win = data?.best;
+
   return (
-    <button
-      type="button"
-      className={`reco-card ${selected ? 'selected' : ''}`}
-      onClick={() => win && onSelect(meta.key, win)}
+    <Card
+      variant="outlined"
+      sx={{
+        height: '100%',
+        borderColor: selected ? 'primary.main' : 'divider',
+        borderWidth: selected ? 2 : 1,
+      }}
     >
-      <div className="reco-head">
-        <span className="reco-short">{meta.short}</span>
-        {win ? <span className="reco-eff">{fmtEfficiency(win.efficiency)}</span> : null}
-      </div>
-      {win ? (
-        <>
-          <div className="reco-length">
-            <strong>{win.length}</strong> days off
-          </div>
-          <div className="reco-range">
-            {formatShort(win.startIso)} &rarr; {formatShort(win.endIso)}
-          </div>
-          <Composition win={win} />
-          <div className="reco-badges">
-            {win.leaves > 0 ? (
-              <span className="badge badge-leave">
-                {fmtLeaves(win.leaves)} leave{win.leaves === 1 ? '' : 's'}
-              </span>
-            ) : (
-              <span className="badge badge-free">0 leaves</span>
-            )}
-            {win.wfhDays > 0 ? <span className="badge badge-wfh">{win.wfhDays} WFH</span> : null}
-            {win.blockWeeks > 0 ? <span className="badge badge-block">{win.blockWeeks}-wk block</span> : null}
-          </div>
-        </>
-      ) : (
-        <div className="reco-empty">No feasible window in range.</div>
-      )}
-      <p className="reco-desc muted small">{meta.desc}</p>
-    </button>
+      <CardActionArea
+        disabled={!win}
+        onClick={() => win && onSelect(meta.key, win)}
+        sx={{ height: '100%', alignItems: 'stretch' }}
+      >
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+            <Typography variant="subtitle2" fontWeight={700}>
+              {meta.short}
+            </Typography>
+            {win ? (
+              <Chip label={fmtEfficiency(win.efficiency)} size="small" color="primary" variant="outlined" />
+            ) : null}
+          </Box>
+          {win ? (
+            <>
+              <Typography variant="h5" component="div" sx={{ lineHeight: 1.2 }}>
+                <Box component="span" fontWeight={700}>
+                  {win.length}
+                </Box>{' '}
+                days off
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                {formatShort(win.startIso)} → {formatShort(win.endIso)}
+              </Typography>
+              <Composition win={win} />
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+                {win.leaves > 0 ? (
+                  <Chip
+                    label={`${fmtLeaves(win.leaves)} leave${win.leaves === 1 ? '' : 's'}`}
+                    size="small"
+                    sx={{ bgcolor: ROLE_COLORS['role-leave'], color: '#fff' }}
+                  />
+                ) : (
+                  <Chip label="0 leaves" size="small" variant="outlined" />
+                )}
+                {win.wfhDays > 0 ? (
+                  <Chip
+                    label={`${win.wfhDays} WFH`}
+                    size="small"
+                    sx={{ bgcolor: ROLE_COLORS['role-wfh'], color: '#fff' }}
+                  />
+                ) : null}
+                {win.blockWeeks > 0 ? (
+                  <Chip label={`${win.blockWeeks}-wk block`} size="small" variant="outlined" />
+                ) : null}
+              </Box>
+            </>
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+              No feasible window in range.
+            </Typography>
+          )}
+          <Typography variant="caption" color="text.secondary">
+            {meta.desc}
+          </Typography>
+        </CardContent>
+      </CardActionArea>
+    </Card>
   );
 }
 
 export default function RecommendationCards({ result, selectedKey, onSelect }) {
   return (
-    <div className="reco-grid">
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+        gap: 1.5,
+      }}
+    >
       {OBJECTIVE_ORDER.map((key) => (
-        <Card
+        <RecoCard
           key={key}
           meta={OBJECTIVE_META[key]}
           data={result[key]}
@@ -71,6 +129,6 @@ export default function RecommendationCards({ result, selectedKey, onSelect }) {
           onSelect={onSelect}
         />
       ))}
-    </div>
+    </Box>
   );
 }

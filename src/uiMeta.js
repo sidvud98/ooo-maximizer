@@ -1,5 +1,19 @@
 import { OBJ, ROLE } from './domain/optimizer.js';
 
+export const ROLE_COLORS = {
+  'role-office': '#ef4444',
+  'role-wfh': '#3b82f6',
+  'role-leave': '#22c55e',
+  'role-holiday': '#f59e0b',
+  'role-weekend': '#94a3b8',
+};
+
+export const TONE_COLORS = {
+  'tone-sick': '#f59e0b',
+  'tone-annual': '#a855f7',
+  'tone-total': '#14b8a6',
+};
+
 export const OBJECTIVE_ORDER = [OBJ.ANY, OBJ.OFF, OBJ.WFH];
 
 export const OBJECTIVE_META = {

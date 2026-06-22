@@ -1,4 +1,6 @@
-import { OBJECTIVE_META, fmtLeaves, fmtEfficiency } from '../uiMeta.js';
+import { Box, Button, Card, CardContent, Chip, Typography } from '@mui/material';
+import { MdArrowRightAlt } from 'react-icons/md';
+import { OBJECTIVE_META, fmtLeaves, fmtEfficiency, TONE_COLORS, ROLE_COLORS } from '../uiMeta.js';
 import { formatShort, formatHuman, year } from '../domain/dates.js';
 import { ROLE } from '../domain/optimizer.js';
 
@@ -14,58 +16,109 @@ export default function SaveUpStrategy({ target, focusKey, onSelect }) {
   const usesSick = plan && plan.sickSpent > 0;
 
   return (
-    <section className="saveup panel">
-      <h2>Save-up strategy &middot; {meta.short}</h2>
-      <p className="muted small">
-        Target window {formatShort(target.range.start)} &rarr; {formatShort(target.range.end)}. Bank your leaves until the
-        window opens, then spend them as below.
-      </p>
+    <Card variant="outlined" sx={{ mb: 2 }}>
+      <CardContent>
+        <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+          Save-up strategy · {meta.short}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+          Target window {formatShort(target.range.start)} → {formatShort(target.range.end)}. Bank your leaves until the
+          window opens, then spend them as below.
+        </Typography>
 
-      <div className="saveup-budget">
-        <span>By {formatShort(target.range.start)} you will have</span>
-        <strong className="tone-sick">{fmtLeaves(budget.sick)} sick</strong>
-        <span>+</span>
-        <strong className="tone-annual">{fmtLeaves(budget.annual)} annual</strong>
-        <span>= {fmtLeaves(budget.spendable)} spendable days.</span>
-      </div>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mb: 2 }}>
+          <Typography variant="body2">By {formatShort(target.range.start)} you will have</Typography>
+          <Typography component="span" fontWeight={700} sx={{ color: TONE_COLORS['tone-sick'] }}>
+            {fmtLeaves(budget.sick)} sick
+          </Typography>
+          <Typography variant="body2">+</Typography>
+          <Typography component="span" fontWeight={700} sx={{ color: TONE_COLORS['tone-annual'] }}>
+            {fmtLeaves(budget.annual)} annual
+          </Typography>
+          <Typography variant="body2">= {fmtLeaves(budget.spendable)} spendable days.</Typography>
+        </Box>
 
-      {!plan ? (
-        <p className="warn">No feasible stretch fits inside this window with the available balance. Widen the window or accrue more leave.</p>
-      ) : (
-        <>
-          <button type="button" className="saveup-result" onClick={() => onSelect(focusKey, plan)}>
-            <div>
-              <div className="saveup-length"><strong>{plan.length}</strong> continuous days out of office</div>
-              <div className="muted">{formatHuman(plan.startIso)} &rarr; {formatHuman(plan.endIso)}</div>
-            </div>
-            <div className="saveup-cost">
-              <span className="badge badge-leave">{fmtLeaves(plan.leaves)} leaves</span>
-              <span className="badge">{fmtEfficiency(plan.efficiency)}</span>
-            </div>
-          </button>
+        {!plan ? (
+          <Typography variant="body2" color="warning.main">
+            No feasible stretch fits inside this window with the available balance. Widen the window or accrue more leave.
+          </Typography>
+        ) : (
+          <>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => onSelect(focusKey, plan)}
+              sx={{
+                justifyContent: 'space-between',
+                textAlign: 'left',
+                py: 1.5,
+                px: 2,
+                mb: 1.5,
+                textTransform: 'none',
+              }}
+            >
+              <Box>
+                <Typography variant="body1">
+                  <Box component="span" fontWeight={700}>
+                    {plan.length}
+                  </Box>{' '}
+                  continuous days out of office
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {formatHuman(plan.startIso)} <MdArrowRightAlt /> {formatHuman(plan.endIso)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                <Chip
+                  label={`${fmtLeaves(plan.leaves)} leaves`}
+                  size="small"
+                  sx={{ bgcolor: ROLE_COLORS['role-leave'], color: '#fff' }}
+                />
+                <Chip label={fmtEfficiency(plan.efficiency)} size="small" variant="outlined" />
+              </Box>
+            </Button>
 
-          {plan.leaves === 0 ? (
-            <p className="ok small">This window needs no leave at all &mdash; it is fully covered by WFH, holidays and weekends.</p>
-          ) : (
-            <div className="leave-schedule">
-              <span className="muted small">Apply leave on:</span>
-              <div className="leave-chips">
-                {leaveDays.map((d) => (
-                  <span key={d.iso} className={`leave-chip ${d.leaveType === 'SICK' ? 'tone-sick' : 'tone-annual'}`}>
-                    {formatShort(d.iso)} <em>{d.leaveType === 'SICK' ? 'sick' : 'annual'}</em>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+            {plan.leaves === 0 ? (
+              <Typography variant="caption" color="success.main" sx={{ display: 'block', mb: 1 }}>
+                This window needs no leave at all — it is fully covered by WFH, holidays and weekends.
+              </Typography>
+            ) : (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
+                  Apply leave on:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {leaveDays.map((d) => (
+                    <Chip
+                      key={d.iso}
+                      size="small"
+                      label={
+                        <>
+                          {formatShort(d.iso)}{' '}
+                          <Box component="span" sx={{ fontStyle: 'italic', opacity: 0.9 }}>
+                            {d.leaveType === 'SICK' ? 'sick' : 'annual'}
+                          </Box>
+                        </>
+                      }
+                      sx={{
+                        bgcolor: d.leaveType === 'SICK' ? TONE_COLORS['tone-sick'] : TONE_COLORS['tone-annual'],
+                        color: '#fff',
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
 
-          {usesSick && crossesYear ? (
-            <p className="warn small">
-              Heads up: sick leave does not carry into the next year. The sick days above must fall before Dec 31 of {year(plan.startIso)}.
-            </p>
-          ) : null}
-        </>
-      )}
-    </section>
+            {usesSick && crossesYear ? (
+              <Typography variant="caption" color="warning.main">
+                Heads up: sick leave does not carry into the next year. The sick days above must fall before Dec 31 of{' '}
+                {year(plan.startIso)}.
+              </Typography>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

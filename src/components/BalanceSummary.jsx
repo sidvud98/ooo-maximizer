@@ -1,19 +1,31 @@
-import { fmtLeaves } from '../uiMeta.js';
+import { Box, Card, CardContent, Typography } from '@mui/material';
+import { fmtLeaves, TONE_COLORS } from '../uiMeta.js';
 import { formatShort } from '../domain/dates.js';
 
 function Stat({ value, label, sub, tone }) {
+  const color = TONE_COLORS[tone];
   return (
-    <div className={`stat ${tone || ''}`}>
-      <div className="stat-value">{value}</div>
-      <div className="stat-label">{label}</div>
-      {sub ? <div className="stat-sub">{sub}</div> : null}
-    </div>
+    <Card variant="outlined" sx={{ flex: '1 1 100px', minWidth: 0 }}>
+      <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+        <Typography variant="h5" fontWeight={700} sx={{ color, lineHeight: 1.2 }}>
+          {value}
+        </Typography>
+        <Typography variant="caption" fontWeight={600} display="block">
+          {label}
+        </Typography>
+        {sub ? (
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
+            {sub}
+          </Typography>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
 export default function BalanceSummary({ balances, asOfIso }) {
   return (
-    <div className="balance-summary">
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, minWidth: 0 }}>
       <Stat
         value={fmtLeaves(balances.sick)}
         label="Sick leave"
@@ -32,6 +44,6 @@ export default function BalanceSummary({ balances, asOfIso }) {
         sub="whole sick + whole annual days"
         tone="tone-total"
       />
-    </div>
+    </Box>
   );
 }

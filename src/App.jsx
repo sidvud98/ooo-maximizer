@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import './App.css';
+import {
+  Box,
+  Chip,
+  CircularProgress,
+  Container,
+  Paper,
+  Tab,
+  Tabs,
+  Typography,
+} from '@mui/material';
 import { DEFAULT_HOLIDAYS } from './domain/holidays.js';
 import { computeBalances } from './domain/accrual.js';
 import { OBJ } from './domain/optimizer.js';
 import { todayISO, onOrBefore } from './domain/dates.js';
 import { usePlanner } from './usePlanner.js';
-import { OBJECTIVE_ORDER, OBJECTIVE_META, ROLE_META } from './uiMeta.js';
+import { OBJECTIVE_ORDER, OBJECTIVE_META, ROLE_META, ROLE_COLORS } from './uiMeta.js';
 import InputsPanel from './components/InputsPanel.jsx';
 import BalanceSummary from './components/BalanceSummary.jsx';
 import RecommendationCards from './components/RecommendationCards.jsx';
@@ -47,21 +56,27 @@ function loadSettings() {
 
 function Legend() {
   return (
-    <div className="legend">
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
       {Object.values(ROLE_META).map((m) => (
-        <span className="legend-item" key={m.cls}>
-          <span className={`legend-swatch ${m.cls}`} />
-          {m.label}
-        </span>
+        <Chip
+          key={m.cls}
+          size="small"
+          label={m.label}
+          sx={{
+            bgcolor: ROLE_COLORS[m.cls],
+            color: '#fff',
+            fontWeight: 500,
+            '& .MuiChip-label': { px: 1 },
+          }}
+        />
       ))}
-    </div>
+    </Box>
   );
 }
 
 export default function App() {
   const [settings, setSettings] = useState(loadSettings);
   const [focus, setFocus] = useState(settings.focus || OBJ.ANY);
-  // The user's explicit pick, stored by dates+scope so it survives recomputes.
   const [selKey, setSelKey] = useState(null);
 
   const onChange = (patch) => setSettings((s) => ({ ...s, ...patch }));
@@ -109,8 +124,6 @@ export default function App() {
 
   const { plan, pending } = usePlanner(input);
 
-  // Derive the previewed window from the current plan (no effect needed).
-  // Falls back to the focused objective's best when there is no matching pick.
   const selected = useMemo(() => {
     if (!plan) return null;
     const pickFrom = (data) => {
@@ -135,95 +148,173 @@ export default function App() {
   const candidates = plan ? plan.result[focus].candidates : [];
 
   return (
-    <div className="app">
-      <header className="app-bar">
-        <div>
-          <h1>OOO Maximizer</h1>
-          <p className="muted">Sit Still? Id Rather Not. Plan the longest stretches out of the office &mdash; vacations, WFH runs, or a hybrid of both.</p>
-        </div>
-        <BalanceSummary balances={balances} asOfIso={today} />
-      </header>
+    <Box sx={{ minHeight: '100svh', display: 'flex', flexDirection: 'column', py: { xs: 2, md: 3 } }}>
+      <Container maxWidth="lg" sx={{ flex: 1 }}>
+        <Box
+          component="header"
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { md: 'flex-start' },
+            justifyContent: 'space-between',
+            gap: 2,
+            mb: 3,
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+              OOO Maximizer
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Sit Still? Id Rather Not. Plan the longest stretches out of the office — vacations, WFH runs, or a hybrid of
+              both.
+            </Typography>
+          </Box>
+          <BalanceSummary balances={balances} asOfIso={today} />
+        </Box>
 
-      <div className="layout">
-        <InputsPanel settings={settings} balances={balances} onChange={onChange} />
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: '340px minmax(0, 1fr)' },
+            gap: 3,
+            alignItems: 'start',
+          }}
+        >
+          <InputsPanel settings={settings} balances={balances} onChange={onChange} />
 
-        <main className="content">
-          {!validHorizon ? (
-            <div className="panel warn-panel">The horizon start date must be on or before the end date.</div>
-          ) : !plan ? (
-            <div className="panel loading-panel">
-              <span className="spinner" /> Calculating your best windows&hellip;
-            </div>
-          ) : (
-            <div className={`results ${pending ? 'pending' : ''}`}>
-              {pending ? (
-                <div className="calc-badge">
-                  <span className="spinner" /> Calculating&hellip;
-                </div>
-              ) : null}
-
-              <RecommendationCards
-                result={plan.result}
-                selectedKey={focus}
-                onSelect={(key, win) => selectWindow(key, win, 'result')}
-              />
-              <p className="muted small reco-note">
-                Click a card to preview it on the calendar. A window may spend leave you will have accrued by its start
-                date (i.e. save up until then), so its leave count can exceed today&rsquo;s balance.
-              </p>
-
-              {plan.target ? (
-                <SaveUpStrategy
-                  target={plan.target}
-                  focusKey={focus}
-                  onSelect={(key, win) => selectWindow(key, win, 'target')}
-                />
-              ) : null}
-
-              <div className="tabs">
-                {OBJECTIVE_ORDER.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`tab ${focus === key ? 'active' : ''}`}
-                    onClick={() => changeFocus(key)}
+          <Box component="main" sx={{ minWidth: 0 }}>
+            {!validHorizon ? (
+              <Paper sx={{ p: 2, bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+                <Typography>The horizon start date must be on or before the end date.</Typography>
+              </Paper>
+            ) : !plan ? (
+              <Paper
+                sx={{
+                  p: 4,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                }}
+              >
+                <CircularProgress size={32} />
+                <Typography color="text.secondary">Calculating your best windows…</Typography>
+              </Paper>
+            ) : (
+              <Box sx={{ position: 'relative' }}>
+                {pending ? (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      inset: 0,
+                      zIndex: 2,
+                      bgcolor: 'action.disabledBackground',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'center',
+                      pt: 2,
+                      borderRadius: 1,
+                    }}
                   >
-                    {OBJECTIVE_META[key].short}
-                  </button>
-                ))}
-              </div>
+                    <Chip
+                      icon={<CircularProgress size={14} color="inherit" />}
+                      label="Calculating…"
+                      size="small"
+                      sx={{ bgcolor: 'background.paper' }}
+                    />
+                  </Box>
+                ) : null}
 
-              <div className="results-grid">
-                <section className="panel calendar-panel">
-                  <div className="panel-head">
-                    <h2>{OBJECTIVE_META[focus].title}</h2>
-                    <Legend />
-                  </div>
-                  <CalendarTimeline days={plan.days} selectedWin={selected} />
-                </section>
-
-                <section className="panel">
-                  <WindowsTable
-                    objectiveKey={focus}
-                    candidates={candidates}
-                    selectedWin={selected}
-                    onSelect={(win) => setSelKey({ scope: 'result', objective: focus, startIso: win.startIso, endIso: win.endIso })}
+                <Box sx={{ opacity: pending ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+                  <RecommendationCards
+                    result={plan.result}
+                    selectedKey={focus}
+                    onSelect={(key, win) => selectWindow(key, win, 'result')}
                   />
-                </section>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, mb: 2 }}>
+                    Click a card to preview it on the calendar. A window may spend leave you will have accrued by its start
+                    date (i.e. save up until then), so its leave count can exceed today&apos;s balance.
+                  </Typography>
 
-      <footer className="app-foot muted small">
-        Office rule: {officeMin} days/week, reduced 1 per holiday/leave, floored by the 50% attendance rule &middot; WFH max
-        2/week &middot;{' '}
-        {blockLen === 0
-          ? 'no half-yearly WFH block'
-          : `one ${blockLen}-week WFH block per half-year (back-to-back across Jun/Jul allowed)`}
-        . Results assume HR approves any plan within these constraints.
-      </footer>
-    </div>
+                  {plan.target ? (
+                    <SaveUpStrategy
+                      target={plan.target}
+                      focusKey={focus}
+                      onSelect={(key, win) => selectWindow(key, win, 'target')}
+                    />
+                  ) : null}
+
+                  <Tabs
+                    value={focus}
+                    onChange={(_, key) => changeFocus(key)}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    allowScrollButtonsMobile
+                    sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+                  >
+                    {OBJECTIVE_ORDER.map((key) => (
+                      <Tab key={key} value={key} label={OBJECTIVE_META[key].short} />
+                    ))}
+                  </Tabs>
+
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                      gap: 2,
+                      alignItems: 'start',
+                    }}
+                  >
+                    <Paper sx={{ p: 2, minWidth: 0 }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: { xs: 'column', sm: 'row' },
+                          alignItems: { sm: 'center' },
+                          justifyContent: 'space-between',
+                          gap: 1,
+                          mb: 2,
+                        }}
+                      >
+                        <Typography variant="h6" component="h2">
+                          {OBJECTIVE_META[focus].title}
+                        </Typography>
+                        <Legend />
+                      </Box>
+                      <CalendarTimeline days={plan.days} selectedWin={selected} />
+                    </Paper>
+
+                    <Paper sx={{ p: 2, minWidth: 0 }}>
+                      <WindowsTable
+                        objectiveKey={focus}
+                        candidates={candidates}
+                        selectedWin={selected}
+                        onSelect={(win) =>
+                          setSelKey({ scope: 'result', objective: focus, startIso: win.startIso, endIso: win.endIso })
+                        }
+                      />
+                    </Paper>
+                  </Box>
+                </Box>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      </Container>
+
+      <Box component="footer" sx={{ mt: 3, py: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Container maxWidth="lg">
+          <Typography variant="caption" color="text.secondary">
+            Office rule: {officeMin} days/week, reduced 1 per holiday/leave, floored by the 50% attendance rule · WFH max
+            2/week ·{' '}
+            {blockLen === 0
+              ? 'no half-yearly WFH block'
+              : `one ${blockLen}-week WFH block per half-year (back-to-back across Jun/Jul allowed)`}
+            . Results assume HR approves any plan within these constraints.
+          </Typography>
+        </Container>
+      </Box>
+    </Box>
   );
 }

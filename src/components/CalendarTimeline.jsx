@@ -1,11 +1,11 @@
-import { ROLE_META } from '../uiMeta.js';
+import { Box, Paper, Typography, useTheme } from '@mui/material';
+import { ROLE_META, ROLE_COLORS } from '../uiMeta.js';
 import { monthIndex, year, dayNum, monthNameLong, todayISO } from '../domain/dates.js';
 import { DAY_TYPE } from '../domain/calendar.js';
 
 const WEEKDAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function leadingBlanks(dow) {
-  // dow: 0=Sun..6=Sat -> columns start at Monday
   return (dow + 6) % 7;
 }
 
@@ -23,31 +23,54 @@ function groupByMonth(days) {
   return months;
 }
 
-function cellClass(day, win) {
+function cellColor(day, win) {
   const role = win && win.roles[day.iso] ? win.roles[day.iso].role : null;
   if (role) return ROLE_META[role].cls;
   if (day.type === DAY_TYPE.WEEKEND) return 'role-weekend';
   if (day.type === DAY_TYPE.HOLIDAY) return 'role-holiday';
-  return 'day-workday';
+  return null;
 }
 
 export default function CalendarTimeline({ days, selectedWin }) {
+  const theme = useTheme();
   const months = groupByMonth(days);
   const today = todayISO();
 
   return (
-    <div className="calendar">
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))',
+        gap: 1.5,
+      }}
+    >
       {months.map((mo) => (
-        <div className="cal-month" key={mo.key}>
-          <div className="cal-month-title">
-            {monthNameLong(mo.m)} <span className="muted">{mo.y}</span>
-          </div>
-          <div className="cal-grid">
+        <Paper key={mo.key} variant="outlined" sx={{ p: 1.25, minWidth: 0 }}>
+          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+            {monthNameLong(mo.m)}{' '}
+            <Typography component="span" variant="caption" color="text.secondary">
+              {mo.y}
+            </Typography>
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              gap: 0.25,
+            }}
+          >
             {WEEKDAY_HEADERS.map((h) => (
-              <div className="cal-dow" key={h}>{h}</div>
+              <Typography
+                key={h}
+                variant="caption"
+                color="text.secondary"
+                sx={{ textAlign: 'center', fontSize: '0.65rem', fontWeight: 600 }}
+              >
+                {h}
+              </Typography>
             ))}
             {Array.from({ length: leadingBlanks(mo.days[0].dow) }).map((_, i) => (
-              <div className="cal-cell blank" key={`b${i}`} />
+              <Box key={`b${i}`} />
             ))}
             {mo.days.map((day) => {
               const inWin = selectedWin && !!selectedWin.roles[day.iso];
@@ -55,23 +78,65 @@ export default function CalendarTimeline({ days, selectedWin }) {
               const title = day.holiday
                 ? `${day.holidayName}${meta ? ` (${meta.label})` : ''}`
                 : meta
-                ? meta.label
-                : day.iso;
+                  ? meta.label
+                  : day.iso;
+              const roleCls = cellColor(day, selectedWin);
+              const bgColor = roleCls ? ROLE_COLORS[roleCls] : 'transparent';
+              const isToday = day.iso === today;
+
               return (
-                <div
+                <Box
                   key={day.iso}
-                  className={`cal-cell ${cellClass(day, selectedWin)} ${inWin ? 'in-window' : ''} ${day.iso === today ? 'is-today' : ''}`}
                   title={title}
+                  sx={{
+                    position: 'relative',
+                    aspectRatio: '1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 0.5,
+                    fontSize: '0.7rem',
+                    fontWeight: inWin ? 600 : 400,
+                    bgcolor: roleCls ? bgColor : 'action.hover',
+                    color: roleCls ? '#fff' : 'text.primary',
+                    outline: isToday ? `2px solid ${theme.palette.primary.main}` : 'none',
+                    outlineOffset: -1,
+                    opacity: inWin || roleCls ? 1 : 0.85,
+                  }}
                 >
-                  <span className="cal-num">{dayNum(day.iso)}</span>
-                  {day.holiday ? <span className="cal-dot" /> : null}
-                  {inWin && selectedWin.roles[day.iso].block ? <span className="cal-block" /> : null}
-                </div>
+                  {dayNum(day.iso)}
+                  {day.holiday ? (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        bottom: 2,
+                        width: 4,
+                        height: 4,
+                        borderRadius: '50%',
+                        bgcolor: roleCls ? '#fff' : ROLE_COLORS['role-holiday'],
+                      }}
+                    />
+                  ) : null}
+                  {inWin && selectedWin.roles[day.iso].block ? (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 1,
+                        right: 1,
+                        width: 4,
+                        height: 4,
+                        borderRadius: '50%',
+                        bgcolor: '#fff',
+                        opacity: 0.9,
+                      }}
+                    />
+                  ) : null}
+                </Box>
               );
             })}
-          </div>
-        </div>
+          </Box>
+        </Paper>
       ))}
-    </div>
+    </Box>
   );
 }

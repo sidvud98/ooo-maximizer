@@ -1,57 +1,89 @@
+import {
+  Box,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
 import { OBJECTIVE_META, fmtLeaves, fmtEfficiency } from '../uiMeta.js';
 import { formatShort } from '../domain/dates.js';
 
 export default function WindowsTable({ objectiveKey, candidates, selectedWin, onSelect }) {
   const meta = OBJECTIVE_META[objectiveKey];
+
   if (!candidates || candidates.length === 0) {
     return (
-      <div className="table-wrap">
-        <h3>Top windows &middot; {meta.short}</h3>
-        <p className="muted">No qualifying windows in the current horizon. Try widening the horizon or adding balance.</p>
-      </div>
+      <Box>
+        <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+          Top windows · {meta.short}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          No qualifying windows in the current horizon. Try widening the horizon or adding balance.
+        </Typography>
+      </Box>
     );
   }
+
   return (
-    <div className="table-wrap">
-      <h3>Top windows &middot; {meta.short}</h3>
-      <div className="table-scroll">
-        <table className="windows-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Start</th>
-              <th>End</th>
-              <th className="num">Days off</th>
-              <th className="num">Workdays</th>
-              <th className="num">Annual</th>
-              <th className="num">Sick</th>
-              <th className="num">WFH</th>
-              <th className="num">Block</th>
-              <th className="num">Efficiency</th>
-            </tr>
-          </thead>
-          <tbody>
+    <Box>
+      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+        Top windows · {meta.short}
+      </Typography>
+      <TableContainer component={Paper} variant="outlined" sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+        <Table size="small" stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>#</TableCell>
+              <TableCell>Start</TableCell>
+              <TableCell>End</TableCell>
+              <TableCell align="right">Days off</TableCell>
+              <TableCell align="right">Workdays</TableCell>
+              <TableCell align="right">Annual</TableCell>
+              <TableCell align="right">Sick</TableCell>
+              <TableCell align="right">WFH</TableCell>
+              <TableCell align="right">Block</TableCell>
+              <TableCell align="right">Efficiency</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {candidates.map((w, i) => {
               const isSel = selectedWin && selectedWin.startIso === w.startIso && selectedWin.endIso === w.endIso;
               return (
-                <tr key={`${w.startIso}-${w.endIso}`} className={isSel ? 'sel' : ''} onClick={() => onSelect(w)}>
-                  <td>{i + 1}</td>
-                  <td>{formatShort(w.startIso)}</td>
-                  <td>{formatShort(w.endIso)}</td>
-                  <td className="num strong">{w.length}</td>
-                  <td className="num">{w.workdaysBridged}</td>
-                  <td className="num">{fmtLeaves(w.annualSpent)}</td>
-                  <td className="num">{fmtLeaves(w.sickSpent)}</td>
-                  <td className="num">{w.wfhDays}</td>
-                  <td className="num">{w.blockWeeks || '-'}</td>
-                  <td className="num">{fmtEfficiency(w.efficiency)}</td>
-                </tr>
+                <TableRow
+                  key={`${w.startIso}-${w.endIso}`}
+                  hover
+                  selected={isSel}
+                  onClick={() => onSelect(w)}
+                  sx={{ cursor: 'pointer' }}
+                >
+                  <TableCell>{i + 1}</TableCell>
+                  <TableCell>{formatShort(w.startIso)}</TableCell>
+                  <TableCell>{formatShort(w.endIso)}</TableCell>
+                  <TableCell align="right">
+                    <Typography component="span" fontWeight={700}>
+                      {w.length}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">{w.workdaysBridged}</TableCell>
+                  <TableCell align="right">{fmtLeaves(w.annualSpent)}</TableCell>
+                  <TableCell align="right">{fmtLeaves(w.sickSpent)}</TableCell>
+                  <TableCell align="right">{w.wfhDays}</TableCell>
+                  <TableCell align="right">{w.blockWeeks || '–'}</TableCell>
+                  <TableCell align="right">{fmtEfficiency(w.efficiency)}</TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
-      </div>
-      <p className="muted small">Efficiency = days off per leave spent. &ldquo;free&rdquo; means zero leaves used. Click a row to preview it on the calendar.</p>
-    </div>
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+        Efficiency = days off per leave spent. &ldquo;free&rdquo; means zero leaves used. Click a row to preview it on the
+        calendar.
+      </Typography>
+    </Box>
   );
 }
