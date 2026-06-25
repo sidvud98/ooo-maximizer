@@ -103,7 +103,8 @@ function StreakResult({ result, selected, onPreview }) {
 function SortableStreakRow({ streak, index, validity, result, selected, onPatch, onRemove, onPreview }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: streak.id });
   const style = {
-    transform: CSS.Transform.toString(transform),
+    // Lock movement to the vertical axis (no horizontal displacement).
+    transform: CSS.Transform.toString(transform ? { ...transform, x: 0, scaleX: 1 } : transform),
     transition,
     opacity: isDragging ? 0.6 : 1,
   };

@@ -47,7 +47,7 @@ function defaultSettings() {
     targetStart: "",
     targetEnd: "",
     focus: OBJ.ANY,
-    viewMode: "recommendations",
+    viewMode: "sequence",
     officeMin: 3,
     blockLen: 2,
     sickPerMonth: 1,
@@ -192,7 +192,7 @@ export default function App() {
   const [settings, setSettings] = useState(loadSettings);
   const [focus, setFocus] = useState(settings.focus || OBJ.ANY);
   const [viewMode, setViewMode] = useState(
-    settings.viewMode || "recommendations",
+    settings.viewMode || "sequence",
   );
   const [selKey, setSelKey] = useState(null);
   const [applied, setApplied] = useState(null); // { settings, today } | null — blank until first Apply
@@ -523,7 +523,7 @@ export default function App() {
         py: { xs: 2, md: 3 },
       }}
     >
-      <Container maxWidth="lg" sx={{ flex: 1 }}>
+      <Container maxWidth={false} disableGutters sx={{ px: { xs: 2, md: 3 }, flex: 1 }}>
         <Box
           component="header"
           sx={{
@@ -611,10 +611,10 @@ export default function App() {
                   if (v) setViewMode(v);
                 }}
               >
-                <ToggleButton value="recommendations">
-                  Recommendations
-                </ToggleButton>
                 <ToggleButton value="sequence">Sequence planner</ToggleButton>
+                <ToggleButton value="recommendations">
+                  Longest Streaks
+                </ToggleButton>
               </ToggleButtonGroup>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 {applied && isDirty ? (
@@ -680,7 +680,7 @@ export default function App() {
         component="footer"
         sx={{ mt: 3, py: 2, borderTop: 1, borderColor: "divider" }}
       >
-        <Container maxWidth="lg">
+        <Container maxWidth={false} disableGutters sx={{ px: { xs: 2, md: 3 } }}>
           <Typography variant="caption" color="text.secondary">
             Office rule: {officeMin} days/week, reduced 1 per holiday/leave,
             floored by the 50% attendance rule · WFH max 2/week ·{" "}
