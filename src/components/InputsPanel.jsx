@@ -1,22 +1,31 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   FormControlLabel,
   FormHelperText,
   IconButton,
   InputLabel,
   MenuItem,
+  Popover,
   Select,
   Stack,
   Switch,
   TextField,
   Typography,
 } from '@mui/material';
-import { MdAdd, MdClose } from 'react-icons/md';
+import { MdAdd, MdClose, MdHelpOutline, MdUploadFile } from 'react-icons/md';
 import { fmtLeaves } from '../uiMeta.js';
+import { DateField, DateRangeField } from './DateFields.jsx';
+import { parseHolidaysCsv } from '../domain/csv.js';
 
 function Field({ label, hint, children }) {
   return (
@@ -63,6 +72,47 @@ export default function InputsPanel({ settings, balances, onChange }) {
     setNewHoliday({ date: '', name: '' });
   };
 
+  const fileInputRef = useRef(null);
+  const [helpAnchor, setHelpAnchor] = useState(null);
+  const [csvPrompt, setCsvPrompt] = useState(null);
+  const [csvError, setCsvError] = useState('');
+
+  const sortByDate = (list) => [...list].sort((a, b) => a.date.localeCompare(b.date));
+
+  const onCsvFile = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // allow re-uploading the same file
+    if (!file) return;
+    setCsvError('');
+    try {
+      const text = await file.text();
+      const result = parseHolidaysCsv(text);
+      if (result.error) {
+        setCsvError(result.error);
+        return;
+      }
+      if (result.parsed === 0) {
+        setCsvError('No valid holiday rows were found in the file.');
+        return;
+      }
+      setCsvPrompt(result);
+    } catch {
+      setCsvError('Could not read the file.');
+    }
+  };
+
+  const applyCsv = (mode) => {
+    if (!csvPrompt) return;
+    if (mode === 'replace') {
+      patch({ holidays: sortByDate(csvPrompt.holidays) });
+    } else if (mode === 'merge') {
+      const map = new Map(settings.holidays.map((h) => [h.date, h]));
+      csvPrompt.holidays.forEach((h) => map.set(h.date, h)); // parsed wins on date clash
+      patch({ holidays: sortByDate([...map.values()]) });
+    }
+    setCsvPrompt(null);
+  };
+
   const fieldRowSx = {
     display: 'grid',
     gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
@@ -78,14 +128,7 @@ export default function InputsPanel({ settings, balances, onChange }) {
           </Typography>
           <Stack spacing={1.5}>
             <Field label="Joining date" hint="Used to derive accrued sick & planned leave.">
-              <TextField
-                type="date"
-                size="small"
-                fullWidth
-                value={settings.joiningDate}
-                onChange={(e) => patch({ joiningDate: e.target.value })}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
+              <DateField value={settings.joiningDate} onChange={(iso) => patch({ joiningDate: iso })} />
             </Field>
             <Box sx={fieldRowSx}>
               <Field label="Sick balance" hint={`Derived: ${fmtLeaves(balances.derivedSick)}`}>
@@ -177,28 +220,13 @@ export default function InputsPanel({ settings, balances, onChange }) {
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
             Over what period am I willing to plan?
           </Typography>
-          <Box sx={fieldRowSx}>
-            <Field label="From">
-              <TextField
-                type="date"
-                size="small"
-                fullWidth
-                value={settings.horizonStart}
-                onChange={(e) => patch({ horizonStart: e.target.value })}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-            </Field>
-            <Field label="To">
-              <TextField
-                type="date"
-                size="small"
-                fullWidth
-                value={settings.horizonEnd}
-                onChange={(e) => patch({ horizonEnd: e.target.value })}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-            </Field>
-          </Box>
+          <Field label="From / To">
+            <DateRangeField
+              startValue={settings.horizonStart}
+              endValue={settings.horizonEnd}
+              onChange={(start, end) => patch({ horizonStart: start, horizonEnd: end })}
+            />
+          </Field>
         </CardContent>
       </Card>
 
@@ -223,27 +251,13 @@ export default function InputsPanel({ settings, balances, onChange }) {
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
             I already know when I want time off — what&apos;s the best way to use my leaves in that slot?
           </Typography>
-          <Box sx={{ ...fieldRowSx, opacity: settings.targetEnabled ? 1 : 0.5, pointerEvents: settings.targetEnabled ? 'auto' : 'none' }}>
-            <Field label="Window from">
-              <TextField
-                type="date"
-                size="small"
-                fullWidth
+          <Box sx={{ opacity: settings.targetEnabled ? 1 : 0.5 }}>
+            <Field label="Window from / to">
+              <DateRangeField
                 disabled={!settings.targetEnabled}
-                value={settings.targetStart}
-                onChange={(e) => patch({ targetStart: e.target.value })}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-            </Field>
-            <Field label="Window to">
-              <TextField
-                type="date"
-                size="small"
-                fullWidth
-                disabled={!settings.targetEnabled}
-                value={settings.targetEnd}
-                onChange={(e) => patch({ targetEnd: e.target.value })}
-                slotProps={{ inputLabel: { shrink: true } }}
+                startValue={settings.targetStart}
+                endValue={settings.targetEnd}
+                onChange={(start, end) => patch({ targetStart: start, targetEnd: end })}
               />
             </Field>
           </Box>
@@ -309,9 +323,60 @@ export default function InputsPanel({ settings, balances, onChange }) {
 
       <Card variant="outlined">
         <CardContent>
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-            Public holidays
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+            <Typography variant="subtitle1" fontWeight={600}>
+              Public holidays
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton size="small" aria-label="CSV format help" onClick={(e) => setHelpAnchor(e.currentTarget)}>
+                <MdHelpOutline />
+              </IconButton>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<MdUploadFile />}
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+              >
+                Upload CSV
+              </Button>
+              <input ref={fileInputRef} type="file" accept=".csv,text/csv" hidden onChange={onCsvFile} />
+            </Box>
+          </Box>
+          <Popover
+            open={Boolean(helpAnchor)}
+            anchorEl={helpAnchor}
+            onClose={() => setHelpAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <Box sx={{ p: 1.5, maxWidth: 280 }}>
+              <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                Expected CSV format
+              </Typography>
+              <Typography variant="caption" color="text.secondary" component="div">
+                A header row with two columns:
+                <Box component="ul" sx={{ pl: 2, my: 0.5 }}>
+                  <li>
+                    <b>date</b> &mdash; format YYYY-MM-DD
+                  </li>
+                  <li>
+                    <b>name</b> &mdash; holiday name
+                  </li>
+                </Box>
+                <Box
+                  component="pre"
+                  sx={{ m: 0, mt: 0.5, p: 1, bgcolor: 'action.hover', borderRadius: 1, fontSize: '0.7rem', whiteSpace: 'pre-wrap' }}
+                >
+                  {'date,name\n2026-01-01,New Year\n2026-12-25,Christmas'}
+                </Box>
+              </Typography>
+            </Box>
+          </Popover>
+          {csvError ? (
+            <Alert severity="error" variant="outlined" sx={{ mb: 1 }} onClose={() => setCsvError('')}>
+              {csvError}
+            </Alert>
+          ) : null}
           <Stack spacing={1}>
             {settings.holidays.map((h, idx) => (
               <Box
@@ -323,13 +388,7 @@ export default function InputsPanel({ settings, balances, onChange }) {
                   alignItems: 'center',
                 }}
               >
-                <TextField
-                  type="date"
-                  size="small"
-                  value={h.date}
-                  onChange={(e) => updateHoliday(idx, 'date', e.target.value)}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
+                <DateField value={h.date} onChange={(iso) => updateHoliday(idx, 'date', iso)} />
                 <TextField
                   size="small"
                   value={h.name}
@@ -349,13 +408,7 @@ export default function InputsPanel({ settings, balances, onChange }) {
                 alignItems: 'center',
               }}
             >
-              <TextField
-                type="date"
-                size="small"
-                value={newHoliday.date}
-                onChange={(e) => setNewHoliday((s) => ({ ...s, date: e.target.value }))}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
+              <DateField value={newHoliday.date} onChange={(iso) => setNewHoliday((s) => ({ ...s, date: iso }))} />
               <TextField
                 size="small"
                 value={newHoliday.name}
@@ -372,6 +425,24 @@ export default function InputsPanel({ settings, balances, onChange }) {
           </Typography>
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(csvPrompt)} onClose={() => setCsvPrompt(null)}>
+        <DialogTitle>Import holidays</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Found {csvPrompt?.parsed} holiday{csvPrompt?.parsed === 1 ? '' : 's'}
+            {csvPrompt?.skipped ? ` (${csvPrompt.skipped} row${csvPrompt.skipped === 1 ? '' : 's'} skipped)` : ''}. Replace
+            your current list, or merge into it (de-duplicating by date)?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCsvPrompt(null)}>Cancel</Button>
+          <Button onClick={() => applyCsv('merge')}>Merge &amp; de-duplicate</Button>
+          <Button variant="contained" onClick={() => applyCsv('replace')}>
+            Replace
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -567,10 +567,10 @@ export default function App() {
                 gutterBottom
                 sx={{ mb: { xs: 0.5, sm: 1 } }}
               >
-                OOO Maximizer
+                O-O-O Maximizer
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Sit Still? Id Rather Not. Plan the longest stretches
+                Sit Still? I'd Rather Not. Plan the longest stretches
                 Out-Of-Office (OOO) — vacations, WFH runs, or a hybrid of both.
               </Typography>
             </Box>
@@ -622,7 +622,7 @@ export default function App() {
                     size="small"
                     color="warning"
                     variant="outlined"
-                    label="changes not applied"
+                    label="Changes Not Applied"
                   />
                 ) : null}
                 <Button

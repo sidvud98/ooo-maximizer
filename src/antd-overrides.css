@@ -1,0 +1,15 @@
+/* Align antd date pickers with MUI outlined inputs. The ConfigProvider tokens
+   handle color/radius/height; these rules fine-tune the wrapper so the pickers
+   sit flush in MUI form layouts and stretch full width. */
+.mui-datefield {
+  width: 100%;
+}
+
+.mui-datefield .ant-picker {
+  width: 100%;
+}
+
+/* MUI form rows use 100% width controls; make the range picker match. */
+.mui-datefield .ant-picker-range {
+  width: 100%;
+}

@@ -33,7 +33,12 @@ function cellColor(day, win) {
 
 export default function CalendarTimeline({ days, selectedWin }) {
   const theme = useTheme();
-  const months = groupByMonth(days);
+  const allMonths = groupByMonth(days);
+  // Show only the months the previewed window spans; when nothing is previewed,
+  // show every month in the horizon.
+  const months = selectedWin
+    ? allMonths.filter((mo) => mo.days.some((d) => selectedWin.roles[d.iso]))
+    : allMonths;
   const today = todayISO();
 
   return (
