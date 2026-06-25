@@ -1,7 +1,7 @@
 import { buildTimeline, groupByWeek, DAY_TYPE } from './calendar.js';
 import { weeklyOfficeMin, NOMINAL_WORKWEEK, MAX_WFH_PER_WEEK, DEFAULT_OFFICE_MIN, halfOfISO } from './attendance.js';
 import { makeBudgetFn } from './accrual.js';
-import { diffDays, onOrBefore, year } from './dates.js';
+import { addDays, diffDays, onOrBefore, year } from './dates.js';
 
 // Objective keys.
 export const OBJ = { OFF: 'OFF', WFH: 'WFH', ANY: 'ANY' };
@@ -314,6 +314,245 @@ function optimizeObjective(days, weeksIndex, objective, budgetFn, restrict, conf
   };
 }
 
+// ---------------------------------------------------------------------------
+// Sequence planner (multi-streak objective). All additive; reuses evalWindow,
+// materializeWindow and enumerateBlockSets without changing them.
+// ---------------------------------------------------------------------------
+
+function maxIso(a, b) {
+  return a.localeCompare(b) >= 0 ? a : b;
+}
+function minIso(a, b) {
+  return a.localeCompare(b) <= 0 ? a : b;
+}
+
+// Wrap a base budget fn so it returns the leave still available after earlier
+// streaks have spent some. `spent` = { planned, sickByYear: Map<year, days> }.
+function makeRemainingBudgetFn(baseBudgetFn, spent) {
+  return (iso) => {
+    const b = baseBudgetFn(iso);
+    const sickSpent = spent.sickByYear.get(year(iso)) || 0;
+    const sick = Math.max(0, b.sick - sickSpent);
+    const annual = Math.max(0, b.annual - spent.planned);
+    return { sick, annual, spendable: Math.floor(sick) + Math.floor(annual) };
+  };
+}
+
+// All affordable windows inside `restrict` for one objective, across every
+// block placement, keeping the cheapest (fewest leaves) per (start,end).
+function feasibleWindowsInRange(days, weeksIndex, objective, budgetFn, restrict, config) {
+  const { officeMin, blockLen } = config;
+  const scenarios = objective === OBJ.OFF ? [new Set()] : enumerateBlockSets(weeksIndex, restrict, blockLen);
+  const byKey = new Map();
+  const n = days.length;
+  for (const blockSet of scenarios) {
+    for (let s = 0; s < n; s++) {
+      if (!withinRestrict(days[s].iso, restrict)) continue;
+      const startYear = year(days[s].iso);
+      const bud = budgetFn(days[s].iso);
+      const annualPool = Math.floor(bud.annual);
+      const sickStart = Math.floor(bud.sick);
+      for (let e = s; e < n; e++) {
+        if (restrict && !onOrBefore(days[e].iso, restrict.end)) break;
+        const r = evalWindow(days, weeksIndex, s, e, objective, blockSet, officeMin, startYear);
+        if (!r) break;
+        const annualNeeded = Math.max(0, r.leavesStartYear - sickStart) + (r.leaves - r.leavesStartYear);
+        if (annualNeeded > annualPool) break;
+        const key = `${s}:${e}`;
+        const prev = byKey.get(key);
+        if (!prev || r.leaves < prev.leaves) {
+          byKey.set(key, {
+            sIdx: s, eIdx: e, startIso: days[s].iso, endIso: days[e].iso,
+            length: e - s + 1, leaves: r.leaves, blockSet,
+          });
+        }
+      }
+    }
+  }
+  return [...byKey.values()];
+}
+
+// Choose a window per the streak's length mode. Returns null if none qualifies.
+function pickWindowByMode(windows, desiredLength, lengthMode) {
+  if (!windows.length) return null;
+  if (lengthMode === 'exact') {
+    const exact = windows.filter((w) => w.length === desiredLength);
+    if (!exact.length) return null;
+    return exact.sort((a, b) => a.leaves - b.leaves)[0];
+  }
+  if (lengthMode === 'min') {
+    const ok = windows.filter((w) => w.length >= desiredLength);
+    if (!ok.length) return null;
+    // Fewest leaves, then closest to the desired length (stay frugal so later
+    // streaks keep more budget).
+    return ok.sort((a, b) => a.leaves - b.leaves || a.length - b.length)[0];
+  }
+  // 'best': longest achievable, tie-break fewer leaves.
+  return [...windows].sort((a, b) => b.length - a.length || a.leaves - b.leaves)[0];
+}
+
+// Solve a chronologically-ordered, non-overlapping list of streaks against one
+// shared pool that depletes as each streak is placed.
+function solveSequence(days, weeksIndex, baseBudgetFn, streaks, config) {
+  const spent = { planned: 0, sickByYear: new Map() };
+  const results = [];
+  let totalShortfall = 0;
+  for (const streak of streaks) {
+    const restrict = { start: streak.start, end: streak.end };
+    const budgetFn = makeRemainingBudgetFn(baseBudgetFn, spent);
+    const windows = feasibleWindowsInRange(days, weeksIndex, streak.objective, budgetFn, restrict, config);
+    const pick = pickWindowByMode(windows, streak.desiredLength, streak.lengthMode);
+    if (!pick) {
+      totalShortfall += streak.desiredLength;
+      results.push({
+        id: streak.id, request: streak, found: false, plan: null,
+        achievedLength: 0, shortfall: streak.desiredLength,
+        reason: windows.length ? 'No stretch in this window meets the length requirement' : 'No feasible stretch fits in this window',
+      });
+      continue;
+    }
+    const plan = materializeWindow(days, weeksIndex, pick, streak.objective, budgetFn, config.officeMin);
+    spent.planned += plan.annualSpent;
+    const sy = year(plan.startIso);
+    spent.sickByYear.set(sy, (spent.sickByYear.get(sy) || 0) + plan.sickSpent);
+    const shortfall = Math.max(0, streak.desiredLength - plan.length);
+    totalShortfall += shortfall;
+    results.push({ id: streak.id, request: streak, found: true, plan, achievedLength: plan.length, shortfall, reason: null });
+  }
+  return { results, totalShortfall };
+}
+
+// Per-streak validity used both by the UI (enable Apply, inline messages) and
+// by runPlanner (decide what to solve). Returns an array aligned to input order.
+export function validateStreaks(streaks, horizon) {
+  const out = streaks.map(() => ({ valid: true, reason: null }));
+  const order = streaks.map((s, i) => ({ s, i })).sort((a, b) => String(a.s.start || '').localeCompare(String(b.s.start || '')));
+  let prevEnd = null;
+  for (const { s, i } of order) {
+    const L = Number(s.desiredLength);
+    let valid = true;
+    let reason = null;
+    if (!s.start || !s.end) { valid = false; reason = 'Set start and end dates'; }
+    else if (s.start.localeCompare(s.end) > 0) { valid = false; reason = 'Start must be on or before end'; }
+    else if (horizon && (s.end.localeCompare(horizon.start) < 0 || s.start.localeCompare(horizon.end) > 0)) {
+      valid = false; reason = 'Window is outside the planning horizon';
+    } else if (!Number.isInteger(L) || L < 1) { valid = false; reason = 'Enter a length of 1+ days'; }
+    if (valid && prevEnd && prevEnd.localeCompare(s.start) >= 0) { valid = false; reason = 'Overlaps the previous streak'; }
+    out[i] = { valid, reason };
+    if (valid) prevEnd = s.end;
+  }
+  return out;
+}
+
+const SUGGEST_SHIFTS = [-14, -10, -7, -3, 3, 7, 10, 14];
+const SUGGEST_WIDEN = [2, 3, 5, 7, 10, 14];
+const SUGGEST_MAX_EVALS = 400;
+
+function changeMagnitude(orig, cand) {
+  let mag = 0;
+  for (let i = 0; i < orig.length; i++) {
+    mag += Math.abs(diffDays(orig[i].start, cand[i].start));
+    mag += Math.abs(diffDays(orig[i].end, cand[i].end));
+    mag += Math.max(0, orig[i].desiredLength - cand[i].desiredLength);
+  }
+  return mag;
+}
+
+function betterScore(a, b) {
+  if (a.totalShortfall !== b.totalShortfall) return a.totalShortfall < b.totalShortfall;
+  return a.magnitude < b.magnitude;
+}
+
+// Bounded coordinate-descent search that ONLY shifts/widens windows and lowers
+// desired lengths (never global rules/accrual/balances). Minimizes total
+// shortfall, then total change magnitude.
+function suggestNearestMatch(days, weeksIndex, baseBudgetFn, streaks, config, horizon) {
+  let evals = 0;
+  const solve = (cand) => { evals += 1; return solveSequence(days, weeksIndex, baseBudgetFn, cand, config); };
+  const base = solve(streaks);
+  if (base.totalShortfall === 0) return null;
+
+  let bestStreaks = streaks;
+  let bestSolve = base;
+  let bestScore = { totalShortfall: base.totalShortfall, magnitude: 0 };
+
+  let improved = true;
+  let rounds = 0;
+  while (improved && rounds < 6 && evals < SUGGEST_MAX_EVALS) {
+    improved = false;
+    rounds += 1;
+    for (let i = 0; i < bestStreaks.length && evals < SUGGEST_MAX_EVALS; i++) {
+      const cur = bestStreaks[i];
+      const prevEnd = i > 0 ? bestStreaks[i - 1].end : null;
+      const nextStart = i < bestStreaks.length - 1 ? bestStreaks[i + 1].start : null;
+      const achieved = bestSolve.results[i].achievedLength;
+      const variants = [];
+      for (const d of SUGGEST_SHIFTS) variants.push({ start: addDays(cur.start, d), end: addDays(cur.end, d), desiredLength: cur.desiredLength });
+      for (const w of SUGGEST_WIDEN) variants.push({ start: cur.start, end: addDays(cur.end, w), desiredLength: cur.desiredLength });
+      for (const w of SUGGEST_WIDEN) variants.push({ start: addDays(cur.start, -w), end: cur.end, desiredLength: cur.desiredLength });
+      for (let L = cur.desiredLength - 1; L >= Math.max(1, achieved) && cur.desiredLength - L <= 6; L--) {
+        variants.push({ start: cur.start, end: cur.end, desiredLength: L });
+      }
+      for (const v of variants) {
+        if (evals >= SUGGEST_MAX_EVALS) break;
+        let start = maxIso(v.start, horizon.start);
+        let end = minIso(v.end, horizon.end);
+        if (start.localeCompare(end) > 0) continue;
+        if (prevEnd && prevEnd.localeCompare(start) >= 0) continue;
+        if (nextStart && end.localeCompare(nextStart) >= 0) continue;
+        const cand = bestStreaks.map((s, idx) => (idx === i ? { ...s, start, end, desiredLength: v.desiredLength } : s));
+        const candSolve = solve(cand);
+        const score = { totalShortfall: candSolve.totalShortfall, magnitude: changeMagnitude(streaks, cand) };
+        if (betterScore(score, bestScore)) {
+          bestScore = score;
+          bestStreaks = cand;
+          bestSolve = candSolve;
+          improved = true;
+        }
+      }
+    }
+  }
+
+  if (bestStreaks === streaks) return null;
+  const changes = streaks
+    .map((s, i) => ({
+      id: s.id,
+      startFrom: s.start, startTo: bestStreaks[i].start,
+      endFrom: s.end, endTo: bestStreaks[i].end,
+      lengthFrom: s.desiredLength, lengthTo: bestStreaks[i].desiredLength,
+    }))
+    .filter((c) => c.startFrom !== c.startTo || c.endFrom !== c.endTo || c.lengthFrom !== c.lengthTo);
+  return { adjustedStreaks: bestStreaks, results: bestSolve.results, totalShortfall: bestSolve.totalShortfall, changes };
+}
+
+// Build the sequence result for runPlanner: validate, clamp valid windows to the
+// horizon, solve in chronological order, and attach a nearest-match suggestion.
+function planSequence(days, weeksIndex, budgetFn, streaks, config, horizon) {
+  const validity = validateStreaks(streaks, horizon);
+  const valid = streaks
+    .map((s, i) => ({ s, i, v: validity[i] }))
+    .filter((x) => x.v.valid)
+    .map((x) => ({ ...x.s, start: maxIso(x.s.start, horizon.start), end: minIso(x.s.end, horizon.end) }))
+    .sort((a, b) => a.start.localeCompare(b.start));
+
+  const solved = solveSequence(days, weeksIndex, budgetFn, valid, config);
+  const bySolvedId = new Map(solved.results.map((r) => [r.id, r]));
+
+  const results = streaks.map((s, i) => {
+    if (!validity[i].valid) {
+      return { id: s.id, request: s, found: false, plan: null, achievedLength: 0, shortfall: Number(s.desiredLength) || 0, reason: validity[i].reason, invalid: true };
+    }
+    return bySolvedId.get(s.id) || { id: s.id, request: s, found: false, plan: null, achievedLength: 0, shortfall: Number(s.desiredLength) || 0, reason: 'No feasible stretch fits in this window' };
+  });
+  const totalShortfall = results.reduce((acc, r) => acc + (r.shortfall || 0), 0);
+
+  let suggestion = null;
+  if (valid.length && results.some((r) => !r.found || r.shortfall > 0)) {
+    suggestion = suggestNearestMatch(days, weeksIndex, budgetFn, valid, config, horizon);
+  }
+  return { results, totalShortfall, suggestion };
+}
+
 // Main entry point used by the UI.
 export function runPlanner(input) {
   const { startIso, endIso, todayIso, joiningIso, holidays, overrides, targetWindow, rates } = input;
@@ -340,5 +579,11 @@ export function runPlanner(input) {
     };
   }
 
-  return { days, weeksIndex, result, target };
+  let sequence = null;
+  const seqStreaks = input.sequence && input.sequence.streaks;
+  if (Array.isArray(seqStreaks) && seqStreaks.length) {
+    sequence = planSequence(days, weeksIndex, budgetFn, seqStreaks, config, { start: startIso, end: endIso });
+  }
+
+  return { days, weeksIndex, result, target, sequence };
 }

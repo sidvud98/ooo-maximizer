@@ -15,6 +15,7 @@ function inputKey(input) {
 export function usePlanner(input) {
   const [plan, setPlan] = useState(null);
   const [status, setStatus] = useState({ key: null, done: false });
+  const [error, setError] = useState(null);
   const [, startTransition] = useTransition();
 
   const workerRef = useRef(null);
@@ -33,14 +34,16 @@ export function usePlanner(input) {
     workerRef.current = worker;
     if (worker) {
       worker.onmessage = (e) => {
-        const { id, ok, payload, requestKey } = e.data || {};
+        const { id, ok, payload, requestKey, error: workerError } = e.data || {};
         if (id !== reqIdRef.current) return;
         if (ok) {
           startTransition(() => {
             setPlan(payload);
+            setError(null);
             setStatus({ key: requestKey, done: true });
           });
         } else {
+          setError(workerError || 'Computation failed');
           setStatus({ key: requestKey, done: true });
         }
       };
@@ -60,11 +63,17 @@ export function usePlanner(input) {
       if (worker) {
         worker.postMessage({ id, input, requestKey: key });
       } else {
-        const { days, result, target } = runPlanner(input);
-        startTransition(() => {
-          setPlan({ days, result, target });
+        try {
+          const { days, result, target, sequence } = runPlanner(input);
+          startTransition(() => {
+            setPlan({ days, result, target, sequence });
+            setError(null);
+            setStatus({ key, done: true });
+          });
+        } catch (err) {
+          setError(String(err && err.message ? err.message : err));
           setStatus({ key, done: true });
-        });
+        }
       }
     }, DEBOUNCE_MS);
     return () => {
@@ -74,5 +83,5 @@ export function usePlanner(input) {
 
   const pending = Boolean(key) && (status.key !== key || !status.done);
 
-  return { plan, pending };
+  return { plan, pending, error };
 }

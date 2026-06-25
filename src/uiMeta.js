@@ -37,6 +37,14 @@ export const OBJECTIVE_META = {
   },
 };
 
+export const LENGTH_MODE_ORDER = ['min', 'exact', 'best'];
+
+export const LENGTH_MODE_META = {
+  min: { key: 'min', label: 'At least', hint: 'Find a stretch of at least this many days.' },
+  exact: { key: 'exact', label: 'Exactly', hint: 'Find a stretch of exactly this many days.' },
+  best: { key: 'best', label: 'Longest possible', hint: 'Find the longest stretch this window allows.' },
+};
+
 export const ROLE_META = {
   [ROLE.OFFICE]: { label: 'Office', cls: 'role-office', abbr: 'O' },
   [ROLE.WFH]: { label: 'Work from home', cls: 'role-wfh', abbr: 'W' },
