@@ -21,6 +21,7 @@ export default function ThemedApp() {
         colorBgContainer: theme.palette.background.paper,
         colorBorder: theme.palette.divider,
         colorText: theme.palette.text.primary,
+        zIndexPopupBase: 1500,
       },
     }),
     [prefersDark, theme],

@@ -2,6 +2,8 @@
 // `date` (YYYY-MM-DD) and `name` columns. Quoted fields and commas inside
 // quotes are supported on a single line; rows with an invalid date are skipped.
 
+import { isRepeatingHolidayName } from './holidays.js';
+
 function parseLine(line) {
   const fields = [];
   let cur = '';
@@ -57,7 +59,7 @@ export function parseHolidaysCsv(text) {
       skipped += 1;
       continue;
     }
-    holidays.push({ date, name: name || 'Holiday' });
+    holidays.push({ date, name: name || 'Holiday', repeatsAnnually: isRepeatingHolidayName(name) });
   }
   return { holidays, parsed: holidays.length, skipped, error: null };
 }

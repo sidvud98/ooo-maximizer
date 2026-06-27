@@ -1,11 +1,11 @@
 import { eachDay, isWeekend, mondayOf, dayOfWeek } from './dates.js';
-import { holidayMap } from './holidays.js';
+import { expandHolidays, holidayMap } from './holidays.js';
 
 export const DAY_TYPE = { WEEKEND: 'WEEKEND', HOLIDAY: 'HOLIDAY', WORKDAY: 'WORKDAY' };
 
 // Build a day-by-day timeline classifying every date in [startIso, endIso].
 export function buildTimeline(startIso, endIso, holidays) {
-  const hmap = holidayMap(holidays);
+  const hmap = holidayMap(expandHolidays(holidays, startIso, endIso));
   return eachDay(startIso, endIso).map((iso) => {
     const weekend = isWeekend(iso);
     const holidayName = hmap.get(iso) || null;

@@ -20,9 +20,16 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import { MdAdd, MdClose, MdHelpOutline, MdUploadFile } from "react-icons/md";
+import {
+  MdAdd,
+  MdDeleteOutline,
+  MdHelpOutline,
+  MdUploadFile,
+} from "react-icons/md";
+import { FaRepeat } from "react-icons/fa6";
 import { fmtLeaves } from "../uiMeta.js";
 import { DateField, DateRangeField } from "./DateFields.jsx";
 import { parseHolidaysCsv } from "../domain/csv.js";
@@ -48,7 +55,11 @@ function roundRate(n) {
 }
 
 export default function InputsPanel({ settings, balances, onChange }) {
-  const [newHoliday, setNewHoliday] = useState({ date: "", name: "" });
+  const [newHoliday, setNewHoliday] = useState({
+    date: "",
+    name: "",
+    repeatsAnnually: false,
+  });
 
   const patch = (p) => onChange(p);
 
@@ -83,13 +94,14 @@ export default function InputsPanel({ settings, balances, onChange }) {
       { ...newHoliday, name: newHoliday.name || "Holiday" },
     ].sort((a, b) => a.date.localeCompare(b.date));
     patch({ holidays });
-    setNewHoliday({ date: "", name: "" });
+    setNewHoliday({ date: "", name: "", repeatsAnnually: false });
   };
 
   const fileInputRef = useRef(null);
   const [helpAnchor, setHelpAnchor] = useState(null);
   const [csvPrompt, setCsvPrompt] = useState(null);
   const [csvError, setCsvError] = useState("");
+  const [holidaysOpen, setHolidaysOpen] = useState(false);
 
   const sortByDate = (list) =>
     [...list].sort((a, b) => a.date.localeCompare(b.date));
@@ -132,6 +144,22 @@ export default function InputsPanel({ settings, balances, onChange }) {
     display: "grid",
     gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
     gap: 1.5,
+  };
+
+  const repeatingCount = settings.holidays.filter(
+    (h) => h.repeatsAnnually,
+  ).length;
+
+  const holidayRowSx = {
+    display: { xs: "grid", sm: "flex" },
+    alignItems: "center",
+    columnGap: { xs: 1, sm: 0.75 },
+    rowGap: { xs: 0.5, sm: 0 },
+    gridTemplateColumns: { xs: "auto minmax(0, 1fr) auto" },
+    gridTemplateAreas: { xs: '"icon name del" "sw date del"' },
+    bgcolor: "action.hover",
+    borderRadius: 1,
+    p: { xs: 1, sm: 0.75 },
   };
 
   return (
@@ -185,11 +213,14 @@ export default function InputsPanel({ settings, balances, onChange }) {
               </Field>
             </Box>
             <Typography variant="caption" color="text.secondary">
-              Leave the balance fields empty to use the derived values. Type a
-              number to override.
+              Leave the remaining leaves' fields empty to use the derived
+              values. Type a number to override.
             </Typography>
             <Box sx={fieldRowSx}>
-              <Field label="Sick / month" hint="Accrual rate (default 1).">
+              <Field
+                label="Sick leaves credited per month"
+                hint="Accrual rate (default 1)."
+              >
                 <TextField
                   type="number"
                   size="small"
@@ -205,7 +236,7 @@ export default function InputsPanel({ settings, balances, onChange }) {
                 />
               </Field>
               <Field
-                label={`Planned / ${plannedPeriodLabel}`}
+                label={`Planned leaves credited per ${plannedPeriodLabel}`}
                 hint={`Accrual rate (default ${isMonthlyAccrual ? "1.5/month" : "4.5/quarter"}).`}
               >
                 <TextField
@@ -301,11 +332,10 @@ export default function InputsPanel({ settings, balances, onChange }) {
             Rules
           </Typography>
           <Box sx={fieldRowSx}>
-            <Field
-              label="Min office days/week"
-              hint="Full week, no leave. 3 = standard 50% rule."
-            >
+            <Field hint="Full week, no leave. 3 = standard 50% rule.">
               <TextField
+                label="Min office days/week"
+                variant="outlined"
                 type="number"
                 size="small"
                 fullWidth
@@ -380,39 +410,73 @@ export default function InputsPanel({ settings, balances, onChange }) {
               alignItems: "center",
               justifyContent: "space-between",
               gap: 1,
-              mb: 1,
             }}
           >
-            <Typography variant="subtitle1" fontWeight={600}>
-              Public holidays
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <IconButton
-                size="small"
-                aria-label="CSV format help"
-                onClick={(e) => setHelpAnchor(e.currentTarget)}
-              >
-                <MdHelpOutline />
-              </IconButton>
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<MdUploadFile />}
-                onClick={() =>
-                  fileInputRef.current && fileInputRef.current.click()
-                }
-              >
-                Upload CSV
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                hidden
-                onChange={onCsvFile}
-              />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle1" fontWeight={600}>
+                Public holidays
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {settings.holidays.length} holiday
+                {settings.holidays.length === 1 ? "" : "s"}
+                {repeatingCount ? ` · ${repeatingCount} repeat annually` : ""}
+              </Typography>
             </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setHolidaysOpen(true)}
+            >
+              Modify Holiday list
+            </Button>
           </Box>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={holidaysOpen}
+        onClose={() => setHolidaysOpen(false)}
+        maxWidth="md"
+        fullWidth
+        disableEnforceFocus
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          <span>Public holidays</span>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <IconButton
+              size="small"
+              aria-label="CSV format help"
+              onClick={(e) => setHelpAnchor(e.currentTarget)}
+            >
+              <MdHelpOutline />
+            </IconButton>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<MdUploadFile />}
+              onClick={() =>
+                fileInputRef.current && fileInputRef.current.click()
+              }
+            >
+              Upload CSV
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              hidden
+              onChange={onCsvFile}
+            />
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
           <Popover
             open={Boolean(helpAnchor)}
             anchorEl={helpAnchor}
@@ -467,47 +531,94 @@ export default function InputsPanel({ settings, balances, onChange }) {
           ) : null}
           <Stack spacing={1}>
             {settings.holidays.map((h, idx) => (
-              <Box
-                key={`${h.date}-${idx}`}
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) 40px",
-                  gap: 0.75,
-                  alignItems: "center",
-                }}
-              >
-                <DateField
-                  value={h.date}
-                  onChange={(iso) => updateHoliday(idx, "date", iso)}
+              <Box key={`${h.date}-${idx}`} sx={holidayRowSx}>
+                <Tooltip title="Repeats every year on the same date">
+                  <Box
+                    component="span"
+                    sx={{
+                      gridArea: "icon",
+                      justifySelf: { xs: "center" },
+                      display: "inline-flex",
+                      color: "text.secondary",
+                      fontSize: 18,
+                    }}
+                  >
+                    <FaRepeat aria-hidden />
+                  </Box>
+                </Tooltip>
+                <Switch
+                  size="small"
+                  checked={!!h.repeatsAnnually}
+                  onChange={(e) =>
+                    updateHoliday(idx, "repeatsAnnually", e.target.checked)
+                  }
+                  inputProps={{ "aria-label": "Repeats annually" }}
+                  sx={{ gridArea: "sw", justifySelf: { xs: "center" } }}
                 />
+                <Box sx={{ gridArea: "date", flex: "0 0 130px", minWidth: 0 }}>
+                  <DateField
+                    value={h.date}
+                    onChange={(iso) => updateHoliday(idx, "date", iso)}
+                  />
+                </Box>
                 <TextField
                   size="small"
                   value={h.name}
                   onChange={(e) => updateHoliday(idx, "name", e.target.value)}
                   placeholder="Name"
+                  sx={{ gridArea: "name", flex: "1 1 0", minWidth: 0 }}
                 />
                 <IconButton
                   size="small"
                   onClick={() => removeHoliday(idx)}
                   aria-label="Remove holiday"
-                  sx={{ minWidth: 40, minHeight: 40 }}
+                  sx={{
+                    gridArea: "del",
+                    alignSelf: "center",
+                    justifySelf: "center",
+                    minWidth: 40,
+                    minHeight: 40,
+                  }}
                 >
-                  <MdClose />
+                  <MdDeleteOutline />
                 </IconButton>
               </Box>
             ))}
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) 40px",
-                gap: 0.75,
-                alignItems: "center",
-              }}
-            >
-              <DateField
-                value={newHoliday.date}
-                onChange={(iso) => setNewHoliday((s) => ({ ...s, date: iso }))}
+            <Box sx={holidayRowSx}>
+              <Tooltip title="Repeats every year on the same date">
+                <Box
+                  component="span"
+                  sx={{
+                    gridArea: "icon",
+                    justifySelf: { xs: "center" },
+                    display: "inline-flex",
+                    color: "text.secondary",
+                    fontSize: 18,
+                  }}
+                >
+                  <FaRepeat aria-hidden />
+                </Box>
+              </Tooltip>
+              <Switch
+                size="small"
+                checked={!!newHoliday.repeatsAnnually}
+                onChange={(e) =>
+                  setNewHoliday((s) => ({
+                    ...s,
+                    repeatsAnnually: e.target.checked,
+                  }))
+                }
+                inputProps={{ "aria-label": "Repeats annually" }}
+                sx={{ gridArea: "sw", justifySelf: { xs: "center" } }}
               />
+              <Box sx={{ gridArea: "date", flex: "0 0 130px", minWidth: 0 }}>
+                <DateField
+                  value={newHoliday.date}
+                  onChange={(iso) =>
+                    setNewHoliday((s) => ({ ...s, date: iso }))
+                  }
+                />
+              </Box>
               <TextField
                 size="small"
                 value={newHoliday.name}
@@ -515,13 +626,20 @@ export default function InputsPanel({ settings, balances, onChange }) {
                   setNewHoliday((s) => ({ ...s, name: e.target.value }))
                 }
                 placeholder="New holiday"
+                sx={{ gridArea: "name", flex: "1 1 0", minWidth: 0 }}
               />
               <IconButton
                 size="small"
                 onClick={addHoliday}
                 aria-label="Add holiday"
                 color="primary"
-                sx={{ minWidth: 40, minHeight: 40 }}
+                sx={{
+                  gridArea: "del",
+                  alignSelf: "center",
+                  justifySelf: "center",
+                  minWidth: 40,
+                  minHeight: 40,
+                }}
               >
                 <MdAdd />
               </IconButton>
@@ -532,10 +650,14 @@ export default function InputsPanel({ settings, balances, onChange }) {
             color="text.secondary"
             sx={{ display: "block", mt: 1.5 }}
           >
-            Add 2027 holidays here if your horizon extends into next year.
+            Use the repeat toggle to recur a holiday every year your horizon
+            covers; otherwise add future-year dates manually.
           </Typography>
-        </CardContent>
-      </Card>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHolidaysOpen(false)}>Done</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={Boolean(csvPrompt)} onClose={() => setCsvPrompt(null)}>
         <DialogTitle>Import holidays</DialogTitle>
