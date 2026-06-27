@@ -24,6 +24,7 @@ import {
   ROLE_META,
   ROLE_COLORS,
 } from "./uiMeta.js";
+import pkg from "../package.json";
 import InputsPanel from "./components/InputsPanel.jsx";
 import BalanceSummary from "./components/BalanceSummary.jsx";
 import RecommendationCards from "./components/RecommendationCards.jsx";
@@ -534,14 +535,26 @@ export default function App() {
               }}
             />
             <Box sx={{ minWidth: 0 }}>
-              <Typography
-                variant="h4"
-                component="h1"
-                gutterBottom
-                sx={{ mb: { xs: 0.5, sm: 1 } }}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 1,
+                  flexWrap: "wrap",
+                  mb: { xs: 0.5, sm: 1 },
+                }}
               >
-                O-O-O Maximizer
-              </Typography>
+                <Typography variant="h4" component="h1" sx={{ mb: 0 }}>
+                  O-O-O Maximizer
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  component="span"
+                >
+                  v{pkg.version}
+                </Typography>
+              </Box>
               <Typography variant="body2" color="text.secondary">
                 Sit Still? I'd Rather Not. Plan the longest stretches
                 Out-Of-Office (OOO) — vacations, WFH runs, or a hybrid of both.
