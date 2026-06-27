@@ -28,7 +28,6 @@ import InputsPanel from "./components/InputsPanel.jsx";
 import BalanceSummary from "./components/BalanceSummary.jsx";
 import RecommendationCards from "./components/RecommendationCards.jsx";
 import WindowsTable from "./components/WindowsTable.jsx";
-import SaveUpStrategy from "./components/SaveUpStrategy.jsx";
 import CalendarTimeline from "./components/CalendarTimeline.jsx";
 import SequencePlanner from "./components/SequencePlanner.jsx";
 
@@ -43,9 +42,6 @@ function defaultSettings() {
     overrideAnnual: "",
     horizonStart: todayISO(),
     horizonEnd: "2026-12-31",
-    targetEnabled: false,
-    targetStart: "",
-    targetEnd: "",
     focus: OBJ.ANY,
     viewMode: "sequence",
     officeMin: 3,
@@ -84,9 +80,6 @@ function configKey(s, todayIso) {
     overrideAnnual: s.overrideAnnual,
     horizonStart: s.horizonStart,
     horizonEnd: s.horizonEnd,
-    targetEnabled: s.targetEnabled,
-    targetStart: s.targetStart,
-    targetEnd: s.targetEnd,
     officeMin: s.officeMin,
     blockLen: s.blockLen,
     sickPerMonth: s.sickPerMonth,
@@ -133,9 +126,6 @@ function deriveInput(s, todayIso) {
       annualAccrualPeriod,
       annualCarryCap,
     },
-    targetWindow: s.targetEnabled
-      ? { start: s.targetStart, end: s.targetEnd }
-      : null,
     sequence:
       Array.isArray(s.streaks) && s.streaks.length
         ? { streaks: s.streaks }
@@ -152,11 +142,6 @@ function missingMandatory(s) {
   if (!horizonPresent) missing.push("planning horizon dates");
   else if (!horizonValid) missing.push("horizon start on or before end");
   if (!s.joiningDate) missing.push("joining date");
-  if (s.targetEnabled) {
-    if (!s.targetStart || !s.targetEnd) missing.push("target window dates");
-    else if (!onOrBefore(s.targetStart, s.targetEnd))
-      missing.push("target window start on or before end");
-  }
   if (Array.isArray(s.streaks) && s.streaks.length) {
     const horizon = horizonValid
       ? { start: s.horizonStart, end: s.horizonEnd }
@@ -304,11 +289,7 @@ export default function App() {
       );
     };
     if (selKey && selKey.objective === focus) {
-      const source =
-        selKey.scope === "target" && plan.target
-          ? plan.target[focus]
-          : plan.result[focus];
-      const hit = pickFrom(source);
+      const hit = pickFrom(plan.result[focus]);
       if (hit) return hit;
     }
     return plan.result[focus]?.best || null;
@@ -399,14 +380,6 @@ export default function App() {
           you will have accrued by its start date (i.e. save up until then), so
           its leave count can exceed today&apos;s balance.
         </Typography>
-
-        {plan.target ? (
-          <SaveUpStrategy
-            target={plan.target}
-            focusKey={focus}
-            onSelect={(key, win) => selectWindow(key, win, "target")}
-          />
-        ) : null}
 
         <Tabs
           value={focus}

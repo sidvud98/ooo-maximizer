@@ -555,7 +555,7 @@ function planSequence(days, weeksIndex, budgetFn, streaks, config, horizon) {
 
 // Main entry point used by the UI.
 export function runPlanner(input) {
-  const { startIso, endIso, todayIso, joiningIso, holidays, overrides, targetWindow, rates } = input;
+  const { startIso, endIso, todayIso, joiningIso, holidays, overrides, rates } = input;
   const config = normalizeConfig(input.config);
   const days = buildTimeline(startIso, endIso, holidays);
   const weeksIndex = groupByWeek(days);
@@ -567,23 +567,11 @@ export function runPlanner(input) {
     [OBJ.ANY]: optimizeObjective(days, weeksIndex, OBJ.ANY, budgetFn, null, config),
   };
 
-  let target = null;
-  if (targetWindow && targetWindow.start && targetWindow.end && onOrBefore(targetWindow.start, targetWindow.end)) {
-    const restrict = { start: targetWindow.start, end: targetWindow.end };
-    target = {
-      range: restrict,
-      budgetAtStart: budgetFn(targetWindow.start),
-      [OBJ.OFF]: optimizeObjective(days, weeksIndex, OBJ.OFF, budgetFn, restrict, config),
-      [OBJ.WFH]: optimizeObjective(days, weeksIndex, OBJ.WFH, budgetFn, restrict, config),
-      [OBJ.ANY]: optimizeObjective(days, weeksIndex, OBJ.ANY, budgetFn, restrict, config),
-    };
-  }
-
   let sequence = null;
   const seqStreaks = input.sequence && input.sequence.streaks;
   if (Array.isArray(seqStreaks) && seqStreaks.length) {
     sequence = planSequence(days, weeksIndex, budgetFn, seqStreaks, config, { start: startIso, end: endIso });
   }
 
-  return { days, weeksIndex, result, target, sequence };
+  return { days, weeksIndex, result, sequence };
 }

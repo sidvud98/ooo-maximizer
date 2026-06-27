@@ -64,9 +64,9 @@ export function usePlanner(input) {
         worker.postMessage({ id, input, requestKey: key });
       } else {
         try {
-          const { days, result, target, sequence } = runPlanner(input);
+          const { days, result, sequence } = runPlanner(input);
           startTransition(() => {
-            setPlan({ days, result, target, sequence });
+            setPlan({ days, result, sequence });
             setError(null);
             setStatus({ key, done: true });
           });

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -21,16 +21,20 @@ import {
   Switch,
   TextField,
   Typography,
-} from '@mui/material';
-import { MdAdd, MdClose, MdHelpOutline, MdUploadFile } from 'react-icons/md';
-import { fmtLeaves } from '../uiMeta.js';
-import { DateField, DateRangeField } from './DateFields.jsx';
-import { parseHolidaysCsv } from '../domain/csv.js';
+} from "@mui/material";
+import { MdAdd, MdClose, MdHelpOutline, MdUploadFile } from "react-icons/md";
+import { fmtLeaves } from "../uiMeta.js";
+import { DateField, DateRangeField } from "./DateFields.jsx";
+import { parseHolidaysCsv } from "../domain/csv.js";
 
 function Field({ label, hint, children }) {
   return (
     <FormControl fullWidth size="small" sx={{ minWidth: 0 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ mb: 0.5, display: "block" }}
+      >
         {label}
       </Typography>
       {children}
@@ -44,46 +48,57 @@ function roundRate(n) {
 }
 
 export default function InputsPanel({ settings, balances, onChange }) {
-  const [newHoliday, setNewHoliday] = useState({ date: '', name: '' });
+  const [newHoliday, setNewHoliday] = useState({ date: "", name: "" });
 
   const patch = (p) => onChange(p);
 
-  const isMonthlyAccrual = settings.annualAccrualPeriod === 'monthly';
-  const plannedPeriodLabel = isMonthlyAccrual ? 'month' : 'quarter';
+  const isMonthlyAccrual = settings.annualAccrualPeriod === "monthly";
+  const plannedPeriodLabel = isMonthlyAccrual ? "month" : "quarter";
 
   const toggleAccrualPeriod = (toMonthly) => {
-    const currentRate = settings.annualPerQuarter === '' ? 4.5 : Number(settings.annualPerQuarter);
+    const currentRate =
+      settings.annualPerQuarter === ""
+        ? 4.5
+        : Number(settings.annualPerQuarter);
     const rate = Number.isFinite(currentRate) ? currentRate : 4.5;
     const converted = toMonthly ? roundRate(rate / 3) : roundRate(rate * 3);
-    patch({ annualAccrualPeriod: toMonthly ? 'monthly' : 'quarterly', annualPerQuarter: converted });
+    patch({
+      annualAccrualPeriod: toMonthly ? "monthly" : "quarterly",
+      annualPerQuarter: converted,
+    });
   };
 
   const updateHoliday = (idx, key, value) => {
-    const holidays = settings.holidays.map((h, i) => (i === idx ? { ...h, [key]: value } : h));
-    patch({ holidays });
-  };
-  const removeHoliday = (idx) => patch({ holidays: settings.holidays.filter((_, i) => i !== idx) });
-  const addHoliday = () => {
-    if (!newHoliday.date) return;
-    const holidays = [...settings.holidays, { ...newHoliday, name: newHoliday.name || 'Holiday' }].sort((a, b) =>
-      a.date.localeCompare(b.date),
+    const holidays = settings.holidays.map((h, i) =>
+      i === idx ? { ...h, [key]: value } : h,
     );
     patch({ holidays });
-    setNewHoliday({ date: '', name: '' });
+  };
+  const removeHoliday = (idx) =>
+    patch({ holidays: settings.holidays.filter((_, i) => i !== idx) });
+  const addHoliday = () => {
+    if (!newHoliday.date) return;
+    const holidays = [
+      ...settings.holidays,
+      { ...newHoliday, name: newHoliday.name || "Holiday" },
+    ].sort((a, b) => a.date.localeCompare(b.date));
+    patch({ holidays });
+    setNewHoliday({ date: "", name: "" });
   };
 
   const fileInputRef = useRef(null);
   const [helpAnchor, setHelpAnchor] = useState(null);
   const [csvPrompt, setCsvPrompt] = useState(null);
-  const [csvError, setCsvError] = useState('');
+  const [csvError, setCsvError] = useState("");
 
-  const sortByDate = (list) => [...list].sort((a, b) => a.date.localeCompare(b.date));
+  const sortByDate = (list) =>
+    [...list].sort((a, b) => a.date.localeCompare(b.date));
 
   const onCsvFile = async (e) => {
     const file = e.target.files && e.target.files[0];
-    e.target.value = ''; // allow re-uploading the same file
+    e.target.value = ""; // allow re-uploading the same file
     if (!file) return;
-    setCsvError('');
+    setCsvError("");
     try {
       const text = await file.text();
       const result = parseHolidaysCsv(text);
@@ -92,20 +107,20 @@ export default function InputsPanel({ settings, balances, onChange }) {
         return;
       }
       if (result.parsed === 0) {
-        setCsvError('No valid holiday rows were found in the file.');
+        setCsvError("No valid holiday rows were found in the file.");
         return;
       }
       setCsvPrompt(result);
     } catch {
-      setCsvError('Could not read the file.');
+      setCsvError("Could not read the file.");
     }
   };
 
   const applyCsv = (mode) => {
     if (!csvPrompt) return;
-    if (mode === 'replace') {
+    if (mode === "replace") {
       patch({ holidays: sortByDate(csvPrompt.holidays) });
-    } else if (mode === 'merge') {
+    } else if (mode === "merge") {
       const map = new Map(settings.holidays.map((h) => [h.date, h]));
       csvPrompt.holidays.forEach((h) => map.set(h.date, h)); // parsed wins on date clash
       patch({ holidays: sortByDate([...map.values()]) });
@@ -114,24 +129,36 @@ export default function InputsPanel({ settings, balances, onChange }) {
   };
 
   const fieldRowSx = {
-    display: 'grid',
-    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+    display: "grid",
+    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
     gap: 1.5,
   };
 
   return (
-    <Box component="aside" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      component="aside"
+      sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+    >
       <Card variant="outlined">
         <CardContent>
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>
             Your profile
           </Typography>
           <Stack spacing={1.5}>
-            <Field label="Joining date" hint="Used to derive accrued sick & planned leave.">
-              <DateField value={settings.joiningDate} onChange={(iso) => patch({ joiningDate: iso })} />
+            <Field
+              label="Company Joining date"
+              hint="Used to derive accrued sick & planned leave."
+            >
+              <DateField
+                value={settings.joiningDate}
+                onChange={(iso) => patch({ joiningDate: iso })}
+              />
             </Field>
             <Box sx={fieldRowSx}>
-              <Field label="Sick balance" hint={`Derived: ${fmtLeaves(balances.derivedSick)}`}>
+              <Field
+                label="Current Sick leaves remaining"
+                hint={`Derived: ${fmtLeaves(balances.derivedSick)}`}
+              >
                 <TextField
                   type="number"
                   size="small"
@@ -142,7 +169,10 @@ export default function InputsPanel({ settings, balances, onChange }) {
                   onChange={(e) => patch({ overrideSick: e.target.value })}
                 />
               </Field>
-              <Field label="Planned balance" hint={`Derived: ${fmtLeaves(balances.derivedAnnual)}`}>
+              <Field
+                label="Current Planned leaves remaining"
+                hint={`Derived: ${fmtLeaves(balances.derivedAnnual)}`}
+              >
                 <TextField
                   type="number"
                   size="small"
@@ -155,7 +185,8 @@ export default function InputsPanel({ settings, balances, onChange }) {
               </Field>
             </Box>
             <Typography variant="caption" color="text.secondary">
-              Leave the balance fields empty to use the derived values. Type a number to override.
+              Leave the balance fields empty to use the derived values. Type a
+              number to override.
             </Typography>
             <Box sx={fieldRowSx}>
               <Field label="Sick / month" hint="Accrual rate (default 1).">
@@ -165,12 +196,17 @@ export default function InputsPanel({ settings, balances, onChange }) {
                   fullWidth
                   slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
                   value={settings.sickPerMonth}
-                  onChange={(e) => patch({ sickPerMonth: e.target.value === '' ? '' : Number(e.target.value) })}
+                  onChange={(e) =>
+                    patch({
+                      sickPerMonth:
+                        e.target.value === "" ? "" : Number(e.target.value),
+                    })
+                  }
                 />
               </Field>
               <Field
                 label={`Planned / ${plannedPeriodLabel}`}
-                hint={`Accrual rate (default ${isMonthlyAccrual ? '1.5/month' : '4.5/quarter'}).`}
+                hint={`Accrual rate (default ${isMonthlyAccrual ? "1.5/month" : "4.5/quarter"}).`}
               >
                 <TextField
                   type="number"
@@ -178,13 +214,26 @@ export default function InputsPanel({ settings, balances, onChange }) {
                   fullWidth
                   slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
                   value={settings.annualPerQuarter}
-                  onChange={(e) => patch({ annualPerQuarter: e.target.value === '' ? '' : Number(e.target.value) })}
+                  onChange={(e) =>
+                    patch({
+                      annualPerQuarter:
+                        e.target.value === "" ? "" : Number(e.target.value),
+                    })
+                  }
                 />
               </Field>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+              }}
+            >
               <Typography variant="caption" color="text.secondary">
-                Planned leave accrues {isMonthlyAccrual ? 'monthly' : 'quarterly'}
+                Planned leave accrues{" "}
+                {isMonthlyAccrual ? "monthly" : "quarterly"}
               </Typography>
               <FormControlLabel
                 control={
@@ -194,18 +243,28 @@ export default function InputsPanel({ settings, balances, onChange }) {
                     onChange={(e) => toggleAccrualPeriod(e.target.checked)}
                   />
                 }
-                label={<Typography variant="caption">Monthly accrual</Typography>}
+                label={
+                  <Typography variant="caption">Monthly accrual</Typography>
+                }
                 sx={{ mr: 0 }}
               />
             </Box>
-            <Field label="Planned carryover cap" hint="Max planned days that roll into a new year (default 45).">
+            <Field
+              label="Planned Leaves annual carryover cap"
+              hint="Max planned days that roll into a new year (default 45)."
+            >
               <TextField
                 type="number"
                 size="small"
                 fullWidth
                 slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
                 value={settings.annualCarryCap}
-                onChange={(e) => patch({ annualCarryCap: e.target.value === '' ? '' : Number(e.target.value) })}
+                onChange={(e) =>
+                  patch({
+                    annualCarryCap:
+                      e.target.value === "" ? "" : Number(e.target.value),
+                  })
+                }
               />
             </Field>
           </Stack>
@@ -217,50 +276,22 @@ export default function InputsPanel({ settings, balances, onChange }) {
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>
             Planning horizon
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mb: 1.5 }}
+          >
             Over what period am I willing to plan?
           </Typography>
           <Field label="From / To">
             <DateRangeField
               startValue={settings.horizonStart}
               endValue={settings.horizonEnd}
-              onChange={(start, end) => patch({ horizonStart: start, horizonEnd: end })}
+              onChange={(start, end) =>
+                patch({ horizonStart: start, horizonEnd: end })
+              }
             />
           </Field>
-        </CardContent>
-      </Card>
-
-      <Card variant="outlined">
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
-            <Typography variant="subtitle1" fontWeight={600}>
-              Target window
-            </Typography>
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={settings.targetEnabled}
-                  onChange={(e) => patch({ targetEnabled: e.target.checked })}
-                />
-              }
-              label={<Typography variant="caption">Plan a specific window</Typography>}
-              sx={{ mr: 0 }}
-            />
-          </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-            I already know when I want time off — what&apos;s the best way to use my leaves in that slot?
-          </Typography>
-          <Box sx={{ opacity: settings.targetEnabled ? 1 : 0.5 }}>
-            <Field label="Window from / to">
-              <DateRangeField
-                disabled={!settings.targetEnabled}
-                startValue={settings.targetStart}
-                endValue={settings.targetEnd}
-                onChange={(start, end) => patch({ targetStart: start, targetEnd: end })}
-              />
-            </Field>
-          </Box>
         </CardContent>
       </Card>
 
@@ -270,14 +301,22 @@ export default function InputsPanel({ settings, balances, onChange }) {
             Rules
           </Typography>
           <Box sx={fieldRowSx}>
-            <Field label="Min office days/week" hint="Full week, no leave. 3 = standard 50% rule.">
+            <Field
+              label="Min office days/week"
+              hint="Full week, no leave. 3 = standard 50% rule."
+            >
               <TextField
                 type="number"
                 size="small"
                 fullWidth
                 slotProps={{ htmlInput: { min: 0, max: 5, step: 1 } }}
                 value={settings.officeMin}
-                onChange={(e) => patch({ officeMin: e.target.value === '' ? '' : Number(e.target.value) })}
+                onChange={(e) =>
+                  patch({
+                    officeMin:
+                      e.target.value === "" ? "" : Number(e.target.value),
+                  })
+                }
               />
             </Field>
             <FormControl fullWidth size="small">
@@ -292,30 +331,42 @@ export default function InputsPanel({ settings, balances, onChange }) {
                 <MenuItem value={2}>2 weeks</MenuItem>
                 <MenuItem value={4}>4 weeks</MenuItem>
               </Select>
-              <FormHelperText>One continuous block per half-year (None disables it).</FormHelperText>
+              <FormHelperText>
+                One continuous block per half-year (None disables it).
+              </FormHelperText>
             </FormControl>
           </Box>
-          <Box component="ul" sx={{ m: '12px 0 0', pl: 2.5, color: 'text.secondary' }}>
+          <Box
+            component="ul"
+            sx={{ m: "12px 0 0", pl: 2.5, color: "text.secondary" }}
+          >
             <Typography component="li" variant="caption" sx={{ mb: 0.5 }}>
-              Office {settings.officeMin === '' ? 3 : settings.officeMin} days/week, minus 1 per holiday/leave (never below
-              the 50% rule)
+              Office {settings.officeMin === "" ? 3 : settings.officeMin}{" "}
+              days/week, minus 1 per holiday/leave (never below the 50% rule)
             </Typography>
             <Typography component="li" variant="caption" sx={{ mb: 0.5 }}>
               WFH capped at 2 days/week (unless inside a WFH block)
             </Typography>
             <Typography component="li" variant="caption" sx={{ mb: 0.5 }}>
               {Number(settings.blockLen) === 0
-                ? 'No half-yearly WFH block'
+                ? "No half-yearly WFH block"
                 : `One ${Number(settings.blockLen) === 4 ? 4 : 2}-week WFH block per half-year, back-to-back across Jun/Jul allowed`}
             </Typography>
             <Typography component="li" variant="caption" sx={{ mb: 0.5 }}>
-              {settings.sickPerMonth === '' ? 1 : settings.sickPerMonth} sick/month (no carry-forward) ·{' '}
-              {settings.annualPerQuarter === '' ? (isMonthlyAccrual ? 1.5 : 4.5) : settings.annualPerQuarter} planned/
+              {settings.sickPerMonth === "" ? 1 : settings.sickPerMonth}{" "}
+              sick/month (no carry-forward) ·{" "}
+              {settings.annualPerQuarter === ""
+                ? isMonthlyAccrual
+                  ? 1.5
+                  : 4.5
+                : settings.annualPerQuarter}{" "}
+              planned/
               {plannedPeriodLabel} (carries forward)
             </Typography>
             <Typography component="li" variant="caption">
-              Planned carryover capped at {settings.annualCarryCap === '' ? 45 : settings.annualCarryCap} days rolled into
-              each new year
+              Planned carryover capped at{" "}
+              {settings.annualCarryCap === "" ? 45 : settings.annualCarryCap}{" "}
+              days rolled into each new year
             </Typography>
           </Box>
         </CardContent>
@@ -323,37 +374,61 @@ export default function InputsPanel({ settings, balances, onChange }) {
 
       <Card variant="outlined">
         <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 1,
+              mb: 1,
+            }}
+          >
             <Typography variant="subtitle1" fontWeight={600}>
               Public holidays
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <IconButton size="small" aria-label="CSV format help" onClick={(e) => setHelpAnchor(e.currentTarget)}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <IconButton
+                size="small"
+                aria-label="CSV format help"
+                onClick={(e) => setHelpAnchor(e.currentTarget)}
+              >
                 <MdHelpOutline />
               </IconButton>
               <Button
                 size="small"
                 variant="outlined"
                 startIcon={<MdUploadFile />}
-                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                onClick={() =>
+                  fileInputRef.current && fileInputRef.current.click()
+                }
               >
                 Upload CSV
               </Button>
-              <input ref={fileInputRef} type="file" accept=".csv,text/csv" hidden onChange={onCsvFile} />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                hidden
+                onChange={onCsvFile}
+              />
             </Box>
           </Box>
           <Popover
             open={Boolean(helpAnchor)}
             anchorEl={helpAnchor}
             onClose={() => setHelpAnchor(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
           >
             <Box sx={{ p: 1.5, maxWidth: 280 }}>
               <Typography variant="subtitle2" fontWeight={700} gutterBottom>
                 Expected CSV format
               </Typography>
-              <Typography variant="caption" color="text.secondary" component="div">
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                component="div"
+              >
                 A header row with two columns:
                 <Box component="ul" sx={{ pl: 2, my: 0.5 }}>
                   <li>
@@ -365,15 +440,28 @@ export default function InputsPanel({ settings, balances, onChange }) {
                 </Box>
                 <Box
                   component="pre"
-                  sx={{ m: 0, mt: 0.5, p: 1, bgcolor: 'action.hover', borderRadius: 1, fontSize: '0.7rem', whiteSpace: 'pre-wrap' }}
+                  sx={{
+                    m: 0,
+                    mt: 0.5,
+                    p: 1,
+                    bgcolor: "action.hover",
+                    borderRadius: 1,
+                    fontSize: "0.7rem",
+                    whiteSpace: "pre-wrap",
+                  }}
                 >
-                  {'date,name\n2026-01-01,New Year\n2026-12-25,Christmas'}
+                  {"date,name\n2026-01-01,New Year\n2026-12-25,Christmas"}
                 </Box>
               </Typography>
             </Box>
           </Popover>
           {csvError ? (
-            <Alert severity="error" variant="outlined" sx={{ mb: 1 }} onClose={() => setCsvError('')}>
+            <Alert
+              severity="error"
+              variant="outlined"
+              sx={{ mb: 1 }}
+              onClose={() => setCsvError("")}
+            >
               {csvError}
             </Alert>
           ) : null}
@@ -382,45 +470,68 @@ export default function InputsPanel({ settings, balances, onChange }) {
               <Box
                 key={`${h.date}-${idx}`}
                 sx={{
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) 40px',
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) 40px",
                   gap: 0.75,
-                  alignItems: 'center',
+                  alignItems: "center",
                 }}
               >
-                <DateField value={h.date} onChange={(iso) => updateHoliday(idx, 'date', iso)} />
+                <DateField
+                  value={h.date}
+                  onChange={(iso) => updateHoliday(idx, "date", iso)}
+                />
                 <TextField
                   size="small"
                   value={h.name}
-                  onChange={(e) => updateHoliday(idx, 'name', e.target.value)}
+                  onChange={(e) => updateHoliday(idx, "name", e.target.value)}
                   placeholder="Name"
                 />
-                <IconButton size="small" onClick={() => removeHoliday(idx)} aria-label="Remove holiday" sx={{ minWidth: 40, minHeight: 40 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => removeHoliday(idx)}
+                  aria-label="Remove holiday"
+                  sx={{ minWidth: 40, minHeight: 40 }}
+                >
                   <MdClose />
                 </IconButton>
               </Box>
             ))}
             <Box
               sx={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) 40px',
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) 40px",
                 gap: 0.75,
-                alignItems: 'center',
+                alignItems: "center",
               }}
             >
-              <DateField value={newHoliday.date} onChange={(iso) => setNewHoliday((s) => ({ ...s, date: iso }))} />
+              <DateField
+                value={newHoliday.date}
+                onChange={(iso) => setNewHoliday((s) => ({ ...s, date: iso }))}
+              />
               <TextField
                 size="small"
                 value={newHoliday.name}
-                onChange={(e) => setNewHoliday((s) => ({ ...s, name: e.target.value }))}
+                onChange={(e) =>
+                  setNewHoliday((s) => ({ ...s, name: e.target.value }))
+                }
                 placeholder="New holiday"
               />
-              <IconButton size="small" onClick={addHoliday} aria-label="Add holiday" color="primary" sx={{ minWidth: 40, minHeight: 40 }}>
+              <IconButton
+                size="small"
+                onClick={addHoliday}
+                aria-label="Add holiday"
+                color="primary"
+                sx={{ minWidth: 40, minHeight: 40 }}
+              >
                 <MdAdd />
               </IconButton>
             </Box>
           </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 1.5 }}
+          >
             Add 2027 holidays here if your horizon extends into next year.
           </Typography>
         </CardContent>
@@ -430,15 +541,21 @@ export default function InputsPanel({ settings, balances, onChange }) {
         <DialogTitle>Import holidays</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
-            Found {csvPrompt?.parsed} holiday{csvPrompt?.parsed === 1 ? '' : 's'}
-            {csvPrompt?.skipped ? ` (${csvPrompt.skipped} row${csvPrompt.skipped === 1 ? '' : 's'} skipped)` : ''}. Replace
-            your current list, or merge into it (de-duplicating by date)?
+            Found {csvPrompt?.parsed} holiday
+            {csvPrompt?.parsed === 1 ? "" : "s"}
+            {csvPrompt?.skipped
+              ? ` (${csvPrompt.skipped} row${csvPrompt.skipped === 1 ? "" : "s"} skipped)`
+              : ""}
+            . Replace your current list, or merge into it (de-duplicating by
+            date)?
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCsvPrompt(null)}>Cancel</Button>
-          <Button onClick={() => applyCsv('merge')}>Merge &amp; de-duplicate</Button>
-          <Button variant="contained" onClick={() => applyCsv('replace')}>
+          <Button onClick={() => applyCsv("merge")}>
+            Merge &amp; de-duplicate
+          </Button>
+          <Button variant="contained" onClick={() => applyCsv("replace")}>
             Replace
           </Button>
         </DialogActions>
