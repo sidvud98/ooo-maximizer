@@ -146,6 +146,15 @@ export default function InputsPanel({ settings, balances, onChange }) {
     gap: 1.5,
   };
 
+  const fieldSubsectionSx = {
+    bgcolor: "action.hover",
+    borderRadius: 1,
+    p: 1.5,
+    display: "flex",
+    flexDirection: "column",
+    gap: 1.5,
+  };
+
   const repeatingCount = settings.holidays.filter(
     (h) => h.repeatsAnnually,
   ).length;
@@ -160,6 +169,7 @@ export default function InputsPanel({ settings, balances, onChange }) {
     bgcolor: "action.hover",
     borderRadius: 1,
     p: { xs: 1, sm: 0.75 },
+    pl: { sm: "18px" },
   };
 
   return (
@@ -173,131 +183,137 @@ export default function InputsPanel({ settings, balances, onChange }) {
             Your profile
           </Typography>
           <Stack spacing={1.5}>
-            <Field
-              label="Company Joining date"
-              hint="Used to derive accrued sick & planned leave."
-            >
-              <DateField
-                value={settings.joiningDate}
-                onChange={(iso) => patch({ joiningDate: iso })}
-              />
-            </Field>
-            <Box sx={fieldRowSx}>
+            <Box sx={fieldSubsectionSx}>
               <Field
-                label="Current Sick leaves remaining"
-                hint={`Derived: ${fmtLeaves(balances.derivedSick)}`}
+                label="Company Joining date"
+                hint="Used to derive accrued sick & planned leave."
               >
-                <TextField
-                  type="number"
-                  size="small"
-                  fullWidth
-                  slotProps={{ htmlInput: { min: 0, step: 1 } }}
-                  placeholder={fmtLeaves(balances.derivedSick)}
-                  value={settings.overrideSick}
-                  onChange={(e) => patch({ overrideSick: e.target.value })}
+                <DateField
+                  value={settings.joiningDate}
+                  onChange={(iso) => patch({ joiningDate: iso })}
                 />
               </Field>
-              <Field
-                label="Current Planned leaves remaining"
-                hint={`Derived: ${fmtLeaves(balances.derivedAnnual)}`}
-              >
-                <TextField
-                  type="number"
-                  size="small"
-                  fullWidth
-                  slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
-                  placeholder={fmtLeaves(balances.derivedAnnual)}
-                  value={settings.overrideAnnual}
-                  onChange={(e) => patch({ overrideAnnual: e.target.value })}
-                />
-              </Field>
-            </Box>
-            <Typography variant="caption" color="text.secondary">
-              Leave the remaining leaves' fields empty to use the derived
-              values. Type a number to override.
-            </Typography>
-            <Box sx={fieldRowSx}>
-              <Field
-                label="Sick leaves credited per month"
-                hint="Accrual rate (default 1)."
-              >
-                <TextField
-                  type="number"
-                  size="small"
-                  fullWidth
-                  slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
-                  value={settings.sickPerMonth}
-                  onChange={(e) =>
-                    patch({
-                      sickPerMonth:
-                        e.target.value === "" ? "" : Number(e.target.value),
-                    })
-                  }
-                />
-              </Field>
-              <Field
-                label={`Planned leaves credited per ${plannedPeriodLabel}`}
-                hint={`Accrual rate (default ${isMonthlyAccrual ? "1.5/month" : "4.5/quarter"}).`}
-              >
-                <TextField
-                  type="number"
-                  size="small"
-                  fullWidth
-                  slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
-                  value={settings.annualPerQuarter}
-                  onChange={(e) =>
-                    patch({
-                      annualPerQuarter:
-                        e.target.value === "" ? "" : Number(e.target.value),
-                    })
-                  }
-                />
-              </Field>
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 1,
-              }}
-            >
-              <Typography variant="caption" color="text.secondary">
-                Planned leave accrues{" "}
-                {isMonthlyAccrual ? "monthly" : "quarterly"}
-              </Typography>
-              <FormControlLabel
-                control={
-                  <Switch
+              <Box sx={fieldRowSx}>
+                <Field
+                  label="Current Sick leaves remaining"
+                  hint={`Derived: ${fmtLeaves(balances.derivedSick)}`}
+                >
+                  <TextField
+                    type="number"
                     size="small"
-                    checked={isMonthlyAccrual}
-                    onChange={(e) => toggleAccrualPeriod(e.target.checked)}
+                    fullWidth
+                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                    placeholder={fmtLeaves(balances.derivedSick)}
+                    value={settings.overrideSick}
+                    onChange={(e) => patch({ overrideSick: e.target.value })}
                   />
-                }
-                label={
-                  <Typography variant="caption">Monthly accrual</Typography>
-                }
-                sx={{ mr: 0 }}
-              />
+                </Field>
+                <Field
+                  label="Current Planned leaves remaining"
+                  hint={`Derived: ${fmtLeaves(balances.derivedAnnual)}`}
+                >
+                  <TextField
+                    type="number"
+                    size="small"
+                    fullWidth
+                    slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
+                    placeholder={fmtLeaves(balances.derivedAnnual)}
+                    value={settings.overrideAnnual}
+                    onChange={(e) => patch({ overrideAnnual: e.target.value })}
+                  />
+                </Field>
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                Leave the remaining leaves' fields empty to use the derived
+                values. Type a number to override.
+              </Typography>
             </Box>
-            <Field
-              label="Planned Leaves annual carryover cap"
-              hint="Max planned days that roll into a new year (default 45)."
-            >
-              <TextField
-                type="number"
-                size="small"
-                fullWidth
-                slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
-                value={settings.annualCarryCap}
-                onChange={(e) =>
-                  patch({
-                    annualCarryCap:
-                      e.target.value === "" ? "" : Number(e.target.value),
-                  })
-                }
-              />
-            </Field>
+            <Box sx={fieldSubsectionSx}>
+              <Box sx={fieldRowSx}>
+                <Field
+                  label="Sick leaves credited per month"
+                  hint="Accrual rate (default 1)."
+                >
+                  <TextField
+                    type="number"
+                    size="small"
+                    fullWidth
+                    slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
+                    value={settings.sickPerMonth}
+                    onChange={(e) =>
+                      patch({
+                        sickPerMonth:
+                          e.target.value === "" ? "" : Number(e.target.value),
+                      })
+                    }
+                  />
+                </Field>
+                <Field
+                  label={`Planned leaves credited per ${plannedPeriodLabel}`}
+                  hint={`Accrual rate (default ${isMonthlyAccrual ? "1.5/month" : "4.5/quarter"}).`}
+                >
+                  <TextField
+                    type="number"
+                    size="small"
+                    fullWidth
+                    slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
+                    value={settings.annualPerQuarter}
+                    onChange={(e) =>
+                      patch({
+                        annualPerQuarter:
+                          e.target.value === "" ? "" : Number(e.target.value),
+                      })
+                    }
+                  />
+                </Field>
+              </Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 1,
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  Planned leave accrues{" "}
+                  {isMonthlyAccrual ? "monthly" : "quarterly"}
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={isMonthlyAccrual}
+                      onChange={(e) => toggleAccrualPeriod(e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Typography variant="caption">Monthly accrual</Typography>
+                  }
+                  sx={{ mr: 0 }}
+                />
+              </Box>
+            </Box>
+            <Box sx={fieldSubsectionSx}>
+              <Field
+                label="Planned Leaves annual carryover cap"
+                hint="Max planned days that roll into a new year (default 45)."
+              >
+                <TextField
+                  type="number"
+                  size="small"
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
+                  value={settings.annualCarryCap}
+                  onChange={(e) =>
+                    patch({
+                      annualCarryCap:
+                        e.target.value === "" ? "" : Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </Box>
           </Stack>
         </CardContent>
       </Card>
